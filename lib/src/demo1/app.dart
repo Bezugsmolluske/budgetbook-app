@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'sample_feature/sample_item_details_view.dart';
+import 'sample_feature/sample_item_list_view.dart';
 import 'settings/settings_controller.dart';
-import 'overview/overview_view.dart';
+import 'settings/settings_view.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({
@@ -26,21 +28,40 @@ class MyApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [Locale('en', ''), Locale('de', '')],
+          supportedLocales: const [
+            Locale('en', ''), // English, no country code
+            Locale('de')
+          ],
+
+          // Use AppLocalizations to configure the correct application title
+          // depending on the user's locale.
+          //
+          // The appTitle is defined in .arb files found in the localization
+          // directory.
           onGenerateTitle: (BuildContext context) =>
               AppLocalizations.of(context)!.appTitle,
+
+          // Define a light and dark color theme. Then, read the user's
+          // preferred ThemeMode (light, dark, or system default) from the
+          // SettingsController to display the correct theme.
           theme: ThemeData(),
           darkTheme: ThemeData.dark(),
           themeMode: settingsController.themeMode,
+
+          // Define a function to handle named routes in order to support
+          // Flutter web url navigation and deep linking.
           onGenerateRoute: (RouteSettings routeSettings) {
             return MaterialPageRoute<void>(
               settings: routeSettings,
               builder: (BuildContext context) {
                 switch (routeSettings.name) {
-                  case OverviewView.routeName:
-                    return OverviewView();
+                  case SettingsView.routeName:
+                    return SettingsView(controller: settingsController);
+                  case SampleItemDetailsView.routeName:
+                    return const SampleItemDetailsView();
+                  case SampleItemListView.routeName:
                   default:
-                    return const OverviewView();
+                    return const SampleItemListView();
                 }
               },
             );
