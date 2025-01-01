@@ -1,3 +1,4 @@
+import 'package:budgetbook_app/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -29,7 +30,10 @@ class MyApp extends StatelessWidget {
           supportedLocales: const [Locale('en', ''), Locale('de', '')],
           onGenerateTitle: (BuildContext context) =>
               AppLocalizations.of(context)!.appTitle,
-          theme: ThemeData(),
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF00FF00)),
+          ),
           darkTheme: ThemeData.dark(),
           themeMode: settingsController.themeMode,
           onGenerateRoute: (RouteSettings routeSettings) {
@@ -39,6 +43,8 @@ class MyApp extends StatelessWidget {
                 switch (routeSettings.name) {
                   case OverviewView.routeName:
                     return OverviewView();
+                  case SettingsView.routeName:
+                    return SettingsView(controller: settingsController);
                   default:
                     return const OverviewView();
                 }
