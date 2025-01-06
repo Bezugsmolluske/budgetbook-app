@@ -12,16 +12,21 @@ class YearlyOverviewView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            yearlyOverview.year.toString()),
-        SizedBox(height: 8),
-        YearlyOverviewTable(monthlyOverviews: yearlyOverview.monthlyOverviews),
-        SizedBox(height: 16),
-      ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 800),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                yearlyOverview.year.toString()),
+            SizedBox(height: 8),
+            YearlyOverviewTable(yearlyOverview: yearlyOverview),
+            SizedBox(height: 16),
+          ],
+        ),
+      ),
     );
   }
 }
