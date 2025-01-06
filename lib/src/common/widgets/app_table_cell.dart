@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
 class AppTableCell extends StatelessWidget {
-  const AppTableCell(
-      {super.key,
-      required this.text,
-      this.alignment = Alignment.centerLeft,
-      this.color});
+  const AppTableCell({
+    super.key,
+    required this.text,
+    this.alignment = Alignment.centerLeft,
+    this.textColor = Colors.white,
+    this.fontWeight = FontWeight.normal,
+  });
 
   final String text;
   final Alignment alignment;
-  final Color? color;
+  final Color? textColor;
+  final FontWeight fontWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +22,13 @@ class AppTableCell extends StatelessWidget {
         padding: const EdgeInsets.all(8.0),
         child: Container(
             alignment: alignment,
-            child: Text(style: TextStyle(color: color), text)),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: fontWeight,
+              ),
+            )),
       ),
     );
   }

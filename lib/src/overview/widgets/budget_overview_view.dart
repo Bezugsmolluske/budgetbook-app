@@ -13,13 +13,14 @@ class BudgetOverviewView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-        scrollDirection: Axis.vertical,
-        physics: BouncingScrollPhysics(),
-        padding: EdgeInsets.all(16),
-        children: budgetOverview.yearlyOverview
-            .map((element) => YearlyOverviewView(
-                  yearlyOverview: element,
-                ))
-            .toList());
+      scrollDirection: Axis.vertical,
+      physics: BouncingScrollPhysics(),
+      padding: EdgeInsets.all(16),
+      children: budgetOverview.yearlyOverview
+          .map((element) => YearlyOverviewView(
+                yearlyOverview: element,
+              ))
+          .toList(),
+    );
   }
 }
