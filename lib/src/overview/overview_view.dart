@@ -1,7 +1,6 @@
 import 'package:budgetbook_app/src/overview/api/overview_api.dart';
 import 'package:budgetbook_app/src/overview/model/budget_overview.dart';
 import 'package:budgetbook_app/src/overview/widgets/budget_overview_view.dart';
-import 'package:budgetbook_app/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
 
 class OverviewView extends StatefulWidget {
@@ -26,16 +25,8 @@ class _OverviewViewState extends State<OverviewView> {
     return LayoutBuilder(builder: (context, constraints) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Overview'),
+          title: const Text('Übersicht'),
           backgroundColor: Colors.teal,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () {
-                Navigator.restorablePushNamed(context, SettingsView.routeName);
-              },
-            ),
-          ],
         ),
         body: FutureBuilder<BudgetOverview>(
           future: budgetOverview,
