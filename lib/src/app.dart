@@ -36,23 +36,60 @@ class MyApp extends StatelessWidget {
           ),
           darkTheme: ThemeData.dark(),
           themeMode: settingsController.themeMode,
-          onGenerateRoute: (RouteSettings routeSettings) {
-            return MaterialPageRoute<void>(
-              settings: routeSettings,
-              builder: (BuildContext context) {
-                switch (routeSettings.name) {
-                  case OverviewView.routeName:
-                    return OverviewView();
-                  case SettingsView.routeName:
-                    return SettingsView(controller: settingsController);
-                  default:
-                    return const OverviewView();
-                }
-              },
-            );
-          },
+          home: AppWidget(settingsController: settingsController),
         );
       },
+    );
+  }
+}
+
+class AppWidget extends StatefulWidget {
+  const AppWidget({
+    super.key,
+    required this.settingsController,
+  });
+
+  final SettingsController settingsController;
+
+  @override
+  State<AppWidget> createState() => _AppWidgetState();
+}
+
+class _AppWidgetState extends State<AppWidget> {
+  var selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      bottomNavigationBar: NavigationBar(
+        destinations: [
+          NavigationDestination(
+              icon: Icon(Icons.home_rounded), label: 'Übersicht'),
+          NavigationDestination(
+              icon: Icon(Icons.add_circle_outline_rounded),
+              label: 'Einkommmen'),
+          NavigationDestination(
+              icon: Icon(Icons.remove_circle_outline_rounded),
+              label: 'Ausgaben'),
+          NavigationDestination(
+              icon: Icon(Icons.settings_rounded), label: 'Einstellungen'),
+        ],
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (value) {
+          setState(() {
+            selectedIndex = value;
+          });
+        },
+      ),
+      body: SafeArea(
+        child: [
+          OverviewView(),
+          OverviewView(),
+          OverviewView(),
+          SettingsView(controller: widget.settingsController)
+        ][selectedIndex],
+      ),
     );
   }
 }
