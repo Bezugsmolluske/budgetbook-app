@@ -4,12 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:budgetbook_app/src/overview/model/budget_overview.dart';
 import 'package:budgetbook_app/src/overview/model/yearly_overview.dart';
 
-final url = Uri(
-    scheme: 'http',
-    host: 'localhost',
-    port: 8080,
-    path: 'overview',
-    queryParameters: Map.from({'years': '2024,2023,2022'}));
+final url =
+    Uri(scheme: 'http', host: 'localhost', port: 8080, path: 'overview');
 
 Future<BudgetOverview> getBudgetOverview() async {
   final response = await http.get(url);
