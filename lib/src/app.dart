@@ -1,3 +1,5 @@
+import 'package:budgetbook_app/src/expenses/expenses_view.dart';
+import 'package:budgetbook_app/src/incomes/incomes_view.dart';
 import 'package:budgetbook_app/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -85,8 +87,8 @@ class _AppWidgetState extends State<AppWidget> {
       body: SafeArea(
         child: [
           OverviewView(),
-          OverviewView(),
-          OverviewView(),
+          ExpensesView(),
+          IncomesView(),
           SettingsView(controller: widget.settingsController)
         ][selectedIndex],
       ),
