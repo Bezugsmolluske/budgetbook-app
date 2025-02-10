@@ -1,3 +1,6 @@
+import 'package:budgetbook_app/src/incomes/api/incomes_api.dart';
+import 'package:budgetbook_app/src/incomes/incomes_overview_view.dart';
+import 'package:budgetbook_app/src/incomes/model/income.dart';
 import 'package:flutter/material.dart';
 
 class IncomesView extends StatefulWidget {
@@ -9,9 +12,11 @@ class IncomesView extends StatefulWidget {
 }
 
 class _IncomesViewState extends State<IncomesView> {
+  late Future<List<Income>> incomes;
   @override
   void initState() {
     super.initState();
+    incomes = getIncomes();
   }
 
   @override
@@ -22,7 +27,18 @@ class _IncomesViewState extends State<IncomesView> {
           title: const Text('Einkommen'),
           backgroundColor: Colors.teal,
         ),
-        body: Text('TODO'),
+        body: FutureBuilder<List<Income>>(
+          future: incomes,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              return IncomesOverviewView(incomes: snapshot.data!);
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('${snapshot.error}'));
+            }
+            return Center(child: const CircularProgressIndicator());
+          },
+        ),
       );
     });
   }

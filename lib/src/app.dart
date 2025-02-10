@@ -87,8 +87,8 @@ class _AppWidgetState extends State<AppWidget> {
       body: SafeArea(
         child: [
           OverviewView(),
-          ExpensesView(),
           IncomesView(),
+          ExpensesView(),
           SettingsView(controller: widget.settingsController)
         ][selectedIndex],
       ),

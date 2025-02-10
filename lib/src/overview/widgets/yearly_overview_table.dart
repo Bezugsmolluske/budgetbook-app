@@ -1,6 +1,5 @@
 import 'package:budgetbook_app/src/common/date/months.dart';
 import 'package:budgetbook_app/src/common/widgets/app_table_cell.dart';
-import 'package:budgetbook_app/src/overview/model/monthly_overview.dart';
 import 'package:budgetbook_app/src/overview/model/yearly_overview.dart';
 import 'package:flutter/material.dart';
 
