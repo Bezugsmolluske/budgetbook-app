@@ -11,7 +11,7 @@ class IncomesOverviewView extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: TransactionTable(
-        totalSum: incomes.amount,
+        totalSum: incomes.sum,
         transactions: incomes.incomes
             .map((income) => Transaction(
                   date: income.date,

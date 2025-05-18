@@ -5,10 +5,10 @@ part 'incomes.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Incomes {
-  final String amount;
+  final String sum;
   final List<Income> incomes;
 
-  Incomes(this.amount, this.incomes);
+  Incomes(this.sum, this.incomes);
 
   factory Incomes.fromJson(Map<String, dynamic> json) =>
       _$IncomesFromJson(json);
