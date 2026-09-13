@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_title">BudgetBook</string>
+    <string name="nav_overview">Übersicht</string>
+    <string name="nav_incomes">Einkommen</string>
+    <string name="nav_expenses">Ausgaben</string>
+    <string name="nav_categories">Kategorien</string>
+    <string name="nav_statistics">Statistik</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="action_save">Speichern</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_delete">Löschen</string>
+    <string name="action_add">Hinzufügen</string>
+    <string name="action_retry">Erneut versuchen</string>
+    <string name="action_reload">Neu laden</string>
+    <string name="field_date">Datum</string>
+    <string name="field_category">Kategorie</string>
+    <string name="field_amount">Betrag</string>
+    <string name="field_description">Beschreibung</string>
+    <string name="category_all">Alle</string>
+    <string name="loading">Laden …</string>
+    <string name="error_generic">Ein Fehler ist aufgetreten</string>
+    <string name="conflict_title">Konflikt</string>
+    <string name="conflict_message">Die Daten wurden inzwischen geändert. Bitte neu laden und erneut speichern.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+</resources>

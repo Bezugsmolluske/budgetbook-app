@@ -1,0 +1,1208 @@
+openapi: 3.0.3
+info:
+  title: BudgetBook API
+  description: >
+    REST backend for the BudgetBook personal finance application.
+    Manages expenses, incomes, and their categories.
+    Provides monthly/yearly overviews, spending statistics, and full data
+    backup/restore via CSV or JSON.
+
+    **Money amounts** are represented as integers in the **smallest currency unit**
+    (cents for EUR). For example, `4250` means `42.50 €`.
+    The `currency` field contains an ISO 4217 code (e.g. `"EUR"`).
+
+    **Dates** follow ISO-8601 format (`YYYY-MM-DD`).
+
+    **Optimistic locking** — every PUT request must include the `version` field
+    returned from the last GET/POST/PUT of the same resource. A mismatch returns
+    `409 Conflict`.
+  version: 2.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Expenses
+    description: Manage expense records
+  - name: Incomes
+    description: Manage income records
+  - name: Expense Categories
+    description: Manage expense categories
+  - name: Income Categories
+    description: Manage income categories
+  - name: Sum
+    description: Aggregate monetary sums
+  - name: Overview
+    description: Monthly and yearly financial overviews
+  - name: Statistics
+    description: Expense statistics per category
+  - name: Backup
+    description: Full data backup and restore (CSV / JSON)
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────
+  # Expenses
+  # ─────────────────────────────────────────────────────────────
+  /expenses:
+    get:
+      tags: [Expenses]
+      summary: List expenses
+      description: >
+        Returns all expenses wrapped in `ExpensesDto` (items + total sum).
+
+
+        **Filter modes** (mutually exclusive):
+
+        - **Month/year filter** — pass `month` and `year` (both must be > 0) plus an optional `category`.
+          Omit or set either value ≤ 0 to skip month/year filtering.
+
+        - **Date-range filter** — pass `startDate` and `endDate` (both required together) plus an optional `category`.
+
+
+        Use `"Alle"` as `category` to return all categories.
+      parameters:
+        - $ref: '#/components/parameters/MonthParam'
+        - $ref: '#/components/parameters/YearParam'
+        - $ref: '#/components/parameters/CategoryParamOptional'
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          example: '2024-01-01'
+          description: Start of the date range (inclusive). Requires `endDate`.
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          example: '2024-03-31'
+          description: End of the date range (inclusive). Requires `startDate`.
+      responses:
+        '200':
+          description: Filtered list of expenses including their total sum
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpensesDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    post:
+      tags: [Expenses]
+      summary: Create a new expense
+      description: >
+        Creates a new expense. The request body must **not** contain `id` or
+        `version` — both fields are assigned by the server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseDtoCreate'
+      responses:
+        '201':
+          description: Expense created successfully
+          headers:
+            Location:
+              description: Relative URI of the new expense (`expenses/{id}`)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /expenses/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+
+    get:
+      tags: [Expenses]
+      summary: Get a single expense
+      responses:
+        '200':
+          description: The requested expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    put:
+      tags: [Expenses]
+      summary: Update an expense
+      description: >
+        Updates an existing expense. The `id` in the request body must match
+        the path parameter and `version` must be provided.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseDto'
+      responses:
+        '200':
+          description: Updated expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [Expenses]
+      summary: Delete an expense
+      responses:
+        '204':
+          description: Expense deleted successfully
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /expenses/statistics:
+    get:
+      tags: [Statistics]
+      summary: Get expense statistics for a category
+      description: >
+        Returns total sum, monthly mean, number of months tracked (since
+        January 2018), and a per-month breakdown for the requested category.
+      parameters:
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+          example: Lebensmittel
+      responses:
+        '200':
+          description: Expense statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseStatisticDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ─────────────────────────────────────────────────────────────
+  # Incomes
+  # ─────────────────────────────────────────────────────────────
+  /incomes:
+    get:
+      tags: [Incomes]
+      summary: List incomes
+      description: >
+        Returns all incomes, optionally filtered by month, year, and/or category.
+        Pass `month`/`year` ≤ 0 (or omit) to skip that filter.
+        Use `"Alle"` as category to return all categories.
+      parameters:
+        - $ref: '#/components/parameters/MonthParam'
+        - $ref: '#/components/parameters/YearParam'
+        - $ref: '#/components/parameters/CategoryParamOptional'
+      responses:
+        '200':
+          description: Filtered list of incomes including their total sum
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomesDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    post:
+      tags: [Incomes]
+      summary: Create a new income
+      description: >
+        Creates a new income. The request body must **not** contain `id` or `version`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncomeDtoCreate'
+      responses:
+        '201':
+          description: Income created successfully
+          headers:
+            Location:
+              description: Relative URI of the new income (`incomes/{id}`)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /incomes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+
+    get:
+      tags: [Incomes]
+      summary: Get a single income
+      responses:
+        '200':
+          description: The requested income
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    put:
+      tags: [Incomes]
+      summary: Update an income
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncomeDto'
+      responses:
+        '200':
+          description: Updated income
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [Incomes]
+      summary: Delete an income
+      responses:
+        '204':
+          description: Income deleted successfully
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ─────────────────────────────────────────────────────────────
+  # Expense Categories
+  # ─────────────────────────────────────────────────────────────
+  /expenseCategories:
+    get:
+      tags: [Expense Categories]
+      summary: List all expense categories
+      responses:
+        '200':
+          description: All expense categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExpenseCategoryDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    post:
+      tags: [Expense Categories]
+      summary: Create a new expense category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryDtoCreate'
+      responses:
+        '201':
+          description: Expense category created
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseCategoryDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /expenseCategories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+
+    get:
+      tags: [Expense Categories]
+      summary: Get a single expense category
+      responses:
+        '200':
+          description: The requested expense category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseCategoryDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    put:
+      tags: [Expense Categories]
+      summary: Update an expense category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseCategoryDto'
+      responses:
+        '200':
+          description: Updated expense category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseCategoryDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [Expense Categories]
+      summary: Delete an expense category
+      responses:
+        '204':
+          description: Expense category deleted
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ─────────────────────────────────────────────────────────────
+  # Income Categories
+  # ─────────────────────────────────────────────────────────────
+  /incomeCategories:
+    get:
+      tags: [Income Categories]
+      summary: List all income categories
+      responses:
+        '200':
+          description: All income categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IncomeCategoryDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    post:
+      tags: [Income Categories]
+      summary: Create a new income category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryDtoCreate'
+      responses:
+        '201':
+          description: Income category created
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeCategoryDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /incomeCategories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+
+    get:
+      tags: [Income Categories]
+      summary: Get a single income category
+      responses:
+        '200':
+          description: The requested income category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeCategoryDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    put:
+      tags: [Income Categories]
+      summary: Update an income category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncomeCategoryDto'
+      responses:
+        '200':
+          description: Updated income category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeCategoryDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [Income Categories]
+      summary: Delete an income category
+      responses:
+        '204':
+          description: Income category deleted
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ─────────────────────────────────────────────────────────────
+  # Sum
+  # ─────────────────────────────────────────────────────────────
+  /sum:
+    get:
+      tags: [Sum]
+      summary: Get total sum (incomes minus expenses)
+      description: >
+        Returns the net total (incomes − expenses) for the given filters.
+        Pass `month`/`year` ≤ 0 to skip month/year filtering.
+      parameters:
+        - $ref: '#/components/parameters/MonthParam'
+        - $ref: '#/components/parameters/YearParam'
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+          example: Alle
+      responses:
+        '200':
+          description: Net sum
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SumDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /sum/expenses:
+    get:
+      tags: [Sum]
+      summary: Get sum of expenses
+      description: >
+        Returns the sum of expenses for the given filters.
+        Pass `month`/`year` ≤ 0 (or omit) to skip that filter.
+        Use `"Alle"` as category to include all categories.
+      parameters:
+        - $ref: '#/components/parameters/MonthParam'
+        - $ref: '#/components/parameters/YearParam'
+        - $ref: '#/components/parameters/CategoryParamOptional'
+      responses:
+        '200':
+          description: Sum of expenses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SumDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /sum/expenses/withinPeriod:
+    get:
+      tags: [Sum]
+      summary: Get sum of expenses within a date range
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: '2024-01-01'
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: '2024-03-31'
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+          example: Alle
+      responses:
+        '200':
+          description: Sum of expenses within the period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SumDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /sum/incomes:
+    get:
+      tags: [Sum]
+      summary: Get sum of incomes
+      description: >
+        Returns the sum of incomes for the given filters.
+        Pass `month`/`year` ≤ 0 to skip that filter.
+      parameters:
+        - $ref: '#/components/parameters/MonthParam'
+        - $ref: '#/components/parameters/YearParam'
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+          example: Alle
+      responses:
+        '200':
+          description: Sum of incomes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SumDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ─────────────────────────────────────────────────────────────
+  # Overview
+  # ─────────────────────────────────────────────────────────────
+  /overview:
+    get:
+      tags: [Overview]
+      summary: Get yearly financial overviews
+      description: >
+        Returns monthly and yearly expense/income/net summaries for each
+        requested year. Future months within the current year are excluded.
+        If `years` is omitted, the last 5 calendar years are used.
+      parameters:
+        - name: years
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: integer
+          style: form
+          explode: true
+          example: [2024, 2023]
+      responses:
+        '200':
+          description: Yearly overviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/YearlyOverviewDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ─────────────────────────────────────────────────────────────
+  # Backup – CSV
+  # ─────────────────────────────────────────────────────────────
+  /backup/csv:
+    get:
+      tags: [Backup]
+      summary: Download full backup as CSV
+      description: >
+        Exports all expenses, incomes, and their categories as a
+        semicolon-delimited CSV file. The file is returned as an attachment
+        named `backup_<today>.csv`.
+      responses:
+        '200':
+          description: CSV backup file
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: 'attachment; filename=backup_2024-03-27.csv'
+          content:
+            application/csv:
+              schema:
+                type: string
+                format: binary
+
+    post:
+      tags: [Backup]
+      summary: Restore from CSV backup
+      description: >
+        Restores the database from a previously exported CSV backup file.
+        **This is a destructive operation** — all existing data is deleted
+        before the backup is imported.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV backup file (content type must be `text/csv`)
+              required: [file]
+      responses:
+        '201':
+          description: Backup restored successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Uploaded the file successfully: backup_2024-03-27.csv'
+        '400':
+          description: File is not a valid CSV
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Please upload a csv file!'
+
+  # ─────────────────────────────────────────────────────────────
+  # Backup – JSON
+  # ─────────────────────────────────────────────────────────────
+  /backup/json:
+    get:
+      tags: [Backup]
+      summary: Download full backup as JSON
+      description: >
+        Exports all expenses, incomes, and their categories as a JSON file.
+        The file is returned as an attachment named `backup_<today>.json`.
+      responses:
+        '200':
+          description: JSON backup file
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: 'attachment; filename=backup_2024-03-27.json'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupDto'
+
+    post:
+      tags: [Backup]
+      summary: Restore from JSON backup
+      description: >
+        Restores the database from a previously exported JSON backup file.
+        **This is a destructive operation** — all existing data is deleted
+        before the backup is imported.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: JSON backup file (content type must be `application/json`)
+              required: [file]
+      responses:
+        '201':
+          description: Backup restored successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Uploaded the file successfully: backup_2024-03-27.json'
+        '400':
+          description: File is not a valid JSON file
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Please upload a json file!'
+
+# ─────────────────────────────────────────────────────────────
+# Components
+# ─────────────────────────────────────────────────────────────
+components:
+
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      description: Business UUID of the resource
+      schema:
+        type: string
+        format: uuid
+      example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+
+    MonthParam:
+      name: month
+      in: query
+      required: false
+      description: Month number (1–12). Pass -1 or omit to skip month filtering.
+      schema:
+        type: integer
+        default: -1
+        minimum: -1
+        maximum: 12
+      example: 3
+
+    YearParam:
+      name: year
+      in: query
+      required: false
+      description: Four-digit year. Pass -1 or omit to skip year filtering.
+      schema:
+        type: integer
+        default: -1
+      example: 2024
+
+    CategoryParamOptional:
+      name: category
+      in: query
+      required: false
+      description: Category name. Use `"Alle"` or omit to include all categories.
+      schema:
+        type: string
+        default: Alle
+      example: Lebensmittel
+
+  schemas:
+
+    # ── Expense ──────────────────────────────────────────────
+    ExpenseDto:
+      type: object
+      description: An expense record as returned by the API.
+      required: [id, version, date, description, category, amount, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Business UUID of the expense
+          example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+        version:
+          type: integer
+          format: int64
+          description: Optimistic-lock version (required on PUT)
+          example: 0
+        date:
+          type: string
+          format: date
+          description: Date of the expense (ISO-8601)
+          example: '2024-03-15'
+        description:
+          type: string
+          description: Free-text description
+          example: 'Wocheneinkauf'
+        category:
+          type: string
+          description: Expense category name
+          example: 'Lebensmittel'
+        amount:
+          type: integer
+          format: int64
+          description: Amount in smallest currency unit (cents)
+          example: 4250
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          example: 'EUR'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the record was created (server-managed, ISO-8601)
+          example: '2024-03-15T10:30:00'
+        lastEditedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the last modification (server-managed, ISO-8601)
+          example: '2024-03-20T14:15:00'
+
+    ExpenseDtoCreate:
+      type: object
+      description: Payload for creating a new expense. Must not include `id` or `version`.
+      required: [date, description, category, amount]
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2024-03-15'
+        description:
+          type: string
+          example: 'Wocheneinkauf'
+        category:
+          type: string
+          example: 'Lebensmittel'
+        amount:
+          type: integer
+          format: int64
+          description: Amount in cents
+          example: 4250
+        currency:
+          type: string
+          description: ISO 4217 currency code. Defaults to EUR if omitted.
+          example: 'EUR'
+
+    ExpensesDto:
+      type: object
+      description: A list of expenses together with their aggregated total sum.
+      required: [sum, currency, expenses]
+      properties:
+        sum:
+          type: integer
+          format: int64
+          description: Total sum of all returned expenses in cents
+          example: 35000
+        currency:
+          type: string
+          example: 'EUR'
+        expenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseDto'
+
+    # ── Income ───────────────────────────────────────────────
+    IncomeDto:
+      type: object
+      description: An income record as returned by the API.
+      required: [id, version, date, description, category, amount, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 'b2c3d4e5-f6a7-8901-bcde-f12345678901'
+        version:
+          type: integer
+          format: int64
+          example: 0
+        date:
+          type: string
+          format: date
+          example: '2024-03-01'
+        description:
+          type: string
+          example: 'Gehalt März'
+        category:
+          type: string
+          example: 'Gehalt'
+        amount:
+          type: integer
+          format: int64
+          description: Amount in cents
+          example: 320000
+        currency:
+          type: string
+          example: 'EUR'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the record was created (server-managed, ISO-8601)
+          example: '2024-03-01T08:00:00'
+        lastEditedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the last modification (server-managed, ISO-8601)
+          example: '2024-03-01T08:00:00'
+
+    IncomeDtoCreate:
+      type: object
+      description: Payload for creating a new income. Must not include `id` or `version`.
+      required: [date, description, category, amount]
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2024-03-01'
+        description:
+          type: string
+          example: 'Gehalt März'
+        category:
+          type: string
+          example: 'Gehalt'
+        amount:
+          type: integer
+          format: int64
+          description: Amount in cents
+          example: 320000
+        currency:
+          type: string
+          description: ISO 4217 currency code. Defaults to EUR if omitted.
+          example: 'EUR'
+
+    IncomesDto:
+      type: object
+      description: A list of incomes together with their aggregated total sum.
+      required: [sum, currency, incomes]
+      properties:
+        sum:
+          type: integer
+          format: int64
+          description: Total sum in cents
+          example: 320000
+        currency:
+          type: string
+          example: 'EUR'
+        incomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomeDto'
+
+    # ── Categories ───────────────────────────────────────────
+    ExpenseCategoryDto:
+      type: object
+      required: [id, version, category]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 'c3d4e5f6-a7b8-9012-cdef-123456789012'
+        version:
+          type: integer
+          format: int64
+          example: 0
+        category:
+          type: string
+          description: Unique category name
+          example: 'Lebensmittel'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the record was created (server-managed, ISO-8601)
+          example: '2024-01-01T00:00:00'
+        lastEditedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the last modification (server-managed, ISO-8601)
+          example: '2024-01-01T00:00:00'
+
+    IncomeCategoryDto:
+      type: object
+      required: [id, version, category]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 'd4e5f6a7-b8c9-0123-defa-234567890123'
+        version:
+          type: integer
+          format: int64
+          example: 0
+        category:
+          type: string
+          description: Unique category name
+          example: 'Gehalt'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the record was created (server-managed, ISO-8601)
+          example: '2024-01-01T00:00:00'
+        lastEditedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the last modification (server-managed, ISO-8601)
+          example: '2024-01-01T00:00:00'
+
+    CategoryDtoCreate:
+      type: object
+      description: Payload for creating a new category. Must not include `id` or `version`.
+      required: [category]
+      properties:
+        category:
+          type: string
+          example: 'Freizeit'
+
+    # ── Sum ──────────────────────────────────────────────────
+    SumDto:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: integer
+          format: int64
+          description: Money amount in cents
+          example: 125075
+        currency:
+          type: string
+          example: 'EUR'
+
+    # ── Overview ─────────────────────────────────────────────
+    MonthlyOverviewDto:
+      type: object
+      required: [month, expenses, incomes, sum, currency]
+      properties:
+        month:
+          type: integer
+          description: Month number (1–12)
+          example: 3
+        expenses:
+          type: integer
+          format: int64
+          description: Total expenses for the month in cents
+          example: 85000
+        incomes:
+          type: integer
+          format: int64
+          description: Total incomes for the month in cents
+          example: 320000
+        sum:
+          type: integer
+          format: int64
+          description: Net amount (incomes − expenses) in cents
+          example: 235000
+        currency:
+          type: string
+          example: 'EUR'
+
+    YearlyOverviewDto:
+      type: object
+      required: [year, expensesSum, incomesSum, sum, currency, monthlyOverviews]
+      properties:
+        year:
+          type: integer
+          example: 2024
+        expensesSum:
+          type: integer
+          format: int64
+          description: Total expenses for the year in cents
+          example: 1020000
+        incomesSum:
+          type: integer
+          format: int64
+          description: Total incomes for the year in cents
+          example: 3840000
+        sum:
+          type: integer
+          format: int64
+          description: Net amount for the year (incomes − expenses) in cents
+          example: 2820000
+        currency:
+          type: string
+          example: 'EUR'
+        monthlyOverviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyOverviewDto'
+
+    # ── Statistics ───────────────────────────────────────────
+    MonthlyExpenseDto:
+      type: object
+      required: [date, amount, currency]
+      properties:
+        date:
+          type: string
+          description: Month represented as a date string (15th of the month)
+          example: '2024-03-15'
+        amount:
+          type: integer
+          format: int64
+          description: Total expenses for that month in cents
+          example: 32000
+        currency:
+          type: string
+          example: 'EUR'
+
+    ExpenseStatisticDto:
+      type: object
+      required: [totalSum, meanExpense, numberOfMonth, currency, monthlyExpenses]
+      properties:
+        totalSum:
+          type: integer
+          format: int64
+          description: Cumulative total of all expenses in the category in cents
+          example: 2560000
+        meanExpense:
+          type: integer
+          format: int64
+          description: Monthly mean expense in cents (total ÷ numberOfMonth)
+          example: 32000
+        numberOfMonth:
+          type: integer
+          format: int64
+          description: Number of months tracked since January 2018
+          example: 80
+        currency:
+          type: string
+          example: 'EUR'
+        monthlyExpenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyExpenseDto'
+
+    # ── Backup ───────────────────────────────────────────────
+    BackupDto:
+      type: object
+      description: Full snapshot of all application data.
+      required: [expenseDtos, expenseCategoryDtos, incomeDtos, incomeCategoryDtos]
+      properties:
+        expenseDtos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseDto'
+        expenseCategoryDtos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseCategoryDto'
+        incomeDtos:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomeDto'
+        incomeCategoryDtos:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomeCategoryDto'
+
+    # ── Errors ───────────────────────────────────────────────
+    ErrorMessage:
+      type: string
+      description: Plain-text error description
+
+  responses:
+    BadRequest:
+      description: >
+        Validation error. Possible causes:
+        - `id` was provided in a POST body
+        - `version` was provided in a POST body
+        - `id` in path and body do not match on PUT
+        - `version` was missing on PUT
+      content:
+        text/plain:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+
+    Conflict:
+      description: >
+        Conflict. Either an optimistic-lock `version` mismatch occurred, or an
+        unhandled runtime exception was thrown.
+
+    InternalServerError:
+      description: Internal server error (e.g. division by zero in money calculation).

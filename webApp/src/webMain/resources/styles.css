@@ -1,0 +1,24 @@
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+#composeTarget {
+    flex: 1;
+    min-height: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1c1b1f;
+    }
+}
