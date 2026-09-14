@@ -37,9 +37,10 @@ paths:
       tags: [Transactions]
       summary: List transactions
       description: >
-        Returns transactions matching the optional filters, plus the sum of
-        the returned items. Omit a filter to ignore it. `from` and `to` are
-        inclusive. If only one of `from`/`to` is set, the request is rejected.
+        Returns transactions matching the optional filters, plus the signed net
+        of the returned items (income minus expense). Omit a filter to ignore
+        it. `from` and `to` are inclusive. If only one of `from`/`to` is set,
+        the request is rejected.
       parameters:
         - $ref: '#/components/parameters/FromParam'
         - $ref: '#/components/parameters/ToParam'
@@ -47,7 +48,7 @@ paths:
         - $ref: '#/components/parameters/CategoryIdParam'
       responses:
         '200':
-          description: Filtered list including the total sum
+          description: Filtered list including the signed net sum
           content:
             application/json:
               schema:
@@ -509,6 +510,9 @@ components:
         sum:
           type: integer
           format: int64
+          description: >
+            Signed net of the returned items in the smallest currency unit.
+            Income adds; expense subtracts. Individual item amounts stay positive.
         currency:
           type: string
         items:

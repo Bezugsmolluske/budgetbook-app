@@ -3,6 +3,7 @@ package de.poljansek.budgetbook.feature.transactions
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,8 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,12 +29,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.poljansek.budgetbook.core.money.formatMoney
 import de.poljansek.budgetbook.core.network.dto.BookType
+import de.poljansek.budgetbook.core.network.dto.CategoryDto
 import de.poljansek.budgetbook.core.network.dto.TransactionDto
 import de.poljansek.budgetbook.core.ui.ConfirmDialog
 import de.poljansek.budgetbook.core.ui.ErrorState
@@ -42,27 +45,35 @@ import de.poljansek.budgetbook.core.ui.MonthYearSelector
 import de.poljansek.budgetbook.core.ui.SimpleDropdown
 import de.poljansek.budgetbook.core.ui.formatIsoDate
 import org.koin.compose.viewmodel.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
-    type: BookType,
-    title: String,
-    onAdd: () -> Unit,
+    onAdd: (BookType) -> Unit,
     onEdit: (String) -> Unit,
+    viewModel: TransactionsViewModel = koinViewModel(),
 ) {
-    val viewModel = koinViewModel<TransactionsViewModel> { parametersOf(type) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<TransactionDto?>(null) }
-    val selectedCategory = state.categories.firstOrNull { it.id == state.categoryId }?.name
-        ?: ALL_CATEGORIES_LABEL
+    val selectedCategory = state.categories.firstOrNull { it.id == state.categoryId }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(title) }) },
+        topBar = { TopAppBar(title = { Text("Buchungen") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAdd) {
-                Icon(Icons.Filled.Add, contentDescription = "Hinzufügen")
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = { onAdd(BookType.INCOME) },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text("Einkommen") },
+                )
+                ExtendedFloatingActionButton(
+                    onClick = { onAdd(BookType.EXPENSE) },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text("Ausgabe") },
+                )
             }
         },
     ) { padding ->
@@ -106,12 +117,14 @@ fun TransactionsScreen(
                     )
                 }
             }
-            val categoryNames = listOf(ALL_CATEGORIES_LABEL) + state.categories.map { it.name }
             SimpleDropdown(
                 label = "Kategorie",
-                options = categoryNames,
+                options = listOf<CategoryDto?>(null) + state.categories,
                 selected = selectedCategory,
-                onSelected = viewModel::setCategoryLabel,
+                onSelected = viewModel::setCategory,
+                display = { category ->
+                    category?.let { "${it.name} (${it.type.displayName()})" } ?: ALL_CATEGORIES_LABEL
+                },
                 modifier = Modifier.padding(top = 12.dp),
             )
             when {
@@ -124,7 +137,10 @@ fun TransactionsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(vertical = 12.dp),
                     )
-                    LazyColumn(Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 160.dp),
+                    ) {
                         items(data?.items.orEmpty(), key = { it.id ?: it.hashCode().toString() }) { item ->
                             TransactionRow(
                                 item = item,
@@ -141,8 +157,8 @@ fun TransactionsScreen(
 
     pendingDelete?.let { item ->
         ConfirmDialog(
-            title = if (type == BookType.EXPENSE) "Ausgabe löschen?" else "Einkommen löschen?",
-            message = "${item.description} (${formatMoney(item.amount, item.currency)})",
+            title = "Buchung löschen?",
+            message = "${item.description} (${item.signedAmountLabel()})",
             onConfirm = {
                 item.id?.let(viewModel::delete)
                 pendingDelete = null
@@ -168,13 +184,26 @@ private fun TransactionRow(
         Column(Modifier.weight(1f)) {
             Text(item.description, fontWeight = FontWeight.Medium)
             Text(
-                "${formatIsoDate(item.date)} · ${item.category.name}",
+                "${formatIsoDate(item.date)} · ${item.category.name} · ${item.type.displayName()}",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        Text(formatMoney(item.amount, item.currency), modifier = Modifier.padding(horizontal = 8.dp))
+        Text(item.signedAmountLabel(), modifier = Modifier.padding(horizontal = 8.dp))
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, contentDescription = "Löschen")
         }
+    }
+}
+
+internal fun BookType.displayName(): String = when (this) {
+    BookType.EXPENSE -> "Ausgabe"
+    BookType.INCOME -> "Einkommen"
+}
+
+private fun TransactionDto.signedAmountLabel(): String {
+    val formatted = formatMoney(amount, currency)
+    return when (type) {
+        BookType.INCOME -> "+$formatted"
+        BookType.EXPENSE -> "−$formatted"
     }
 }

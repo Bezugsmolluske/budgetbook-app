@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 data class TransactionEditorUiState(
     val loading: Boolean = true,
     val saving: Boolean = false,
+    val type: BookType = BookType.EXPENSE,
     val date: String = "",
     val description: String = "",
     val categoryId: String = "",
@@ -32,22 +33,31 @@ data class TransactionEditorUiState(
 )
 
 class TransactionEditorViewModel(
-    private val type: BookType,
+    private val initialType: BookType,
     private val transactionId: String,
     private val api: BudgetBookApi,
 ) : ViewModel() {
     private val isCreate: Boolean = transactionId.isBlank()
-    private val _state = MutableStateFlow(TransactionEditorUiState())
+    private val _state = MutableStateFlow(TransactionEditorUiState(type = initialType))
     val state: StateFlow<TransactionEditorUiState> = _state.asStateFlow()
 
     init {
         load()
     }
 
+    fun updateType(type: BookType) {
+        val matching = _state.value.categories.filter { it.type == type }
+        _state.value = _state.value.copy(
+            type = type,
+            categoryId = matching.firstOrNull()?.id.orEmpty(),
+        )
+    }
+
     fun updateDate(value: String) { _state.value = _state.value.copy(date = value) }
     fun updateDescription(value: String) { _state.value = _state.value.copy(description = value) }
     fun updateCategoryName(name: String) {
-        val id = _state.value.categories.firstOrNull { it.name == name }?.id.orEmpty()
+        val matching = _state.value.categories.filter { it.type == _state.value.type }
+        val id = matching.firstOrNull { it.name == name }?.id.orEmpty()
         _state.value = _state.value.copy(categoryId = id)
     }
     fun updateAmount(value: String) { _state.value = _state.value.copy(amountInput = value) }
@@ -56,15 +66,16 @@ class TransactionEditorViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null, conflict = false)
             runCatching {
-                val categories = api.getCategories(type)
+                val categories = api.getCategories()
                 val existing = if (isCreate) null else api.getTransaction(transactionId)
                 categories to existing
             }.onSuccess { (categories, existing) ->
                 _state.value = if (existing == null) {
                     TransactionEditorUiState(
                         loading = false,
+                        type = initialType,
                         categories = categories,
-                        categoryId = categories.firstOrNull()?.id.orEmpty(),
+                        categoryId = categories.firstOrNull { it.type == initialType }?.id.orEmpty(),
                     )
                 } else {
                     existing.toUi(categories)
@@ -95,7 +106,7 @@ class TransactionEditorViewModel(
                 description = current.description,
                 amount = cents,
                 currency = current.currency,
-                type = type,
+                type = current.type,
                 categoryId = current.categoryId,
             )
             runCatching {
@@ -115,6 +126,7 @@ class TransactionEditorViewModel(
 
     private fun TransactionDto.toUi(categories: List<CategoryDto>) = TransactionEditorUiState(
         loading = false,
+        type = type,
         date = date,
         description = description,
         categoryId = category.id,

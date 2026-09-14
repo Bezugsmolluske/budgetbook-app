@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -46,12 +45,11 @@ import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
 
 @Serializable data object OverviewRoute
-@Serializable data object IncomesRoute
-@Serializable data object ExpensesRoute
+@Serializable data object TransactionsRoute
 @Serializable data object CategoriesRoute
 @Serializable data object StatisticsRoute
 @Serializable data object SettingsRoute
-@Serializable data class TransactionEditorRoute(val type: String, val id: String = "")
+@Serializable data class TransactionEditorRoute(val id: String = "", val type: String = "")
 
 private data class TopLevelDestination(
     val route: Any,
@@ -61,8 +59,7 @@ private data class TopLevelDestination(
 
 private val topLevelDestinations = listOf(
     TopLevelDestination(OverviewRoute, "Übersicht", Icons.Filled.Home),
-    TopLevelDestination(IncomesRoute, "Einkommen", Icons.Filled.AddCircle),
-    TopLevelDestination(ExpensesRoute, "Ausgaben", Icons.Filled.Clear),
+    TopLevelDestination(TransactionsRoute, "Buchungen", Icons.Filled.AddCircle),
     TopLevelDestination(CategoriesRoute, "Kategorien", Icons.AutoMirrored.Filled.List),
     TopLevelDestination(StatisticsRoute, "Statistik", Icons.Filled.DateRange),
     TopLevelDestination(SettingsRoute, "Einstellungen", Icons.Filled.Settings),
@@ -127,20 +124,12 @@ private fun BudgetBookNav(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 composable<OverviewRoute> { OverviewScreen() }
-                composable<IncomesRoute> {
+                composable<TransactionsRoute> {
                     TransactionsScreen(
-                        type = BookType.INCOME,
-                        title = "Einkommen",
-                        onAdd = { navController.navigate(TransactionEditorRoute(BookType.INCOME.name)) },
-                        onEdit = { navController.navigate(TransactionEditorRoute(BookType.INCOME.name, it)) },
-                    )
-                }
-                composable<ExpensesRoute> {
-                    TransactionsScreen(
-                        type = BookType.EXPENSE,
-                        title = "Ausgaben",
-                        onAdd = { navController.navigate(TransactionEditorRoute(BookType.EXPENSE.name)) },
-                        onEdit = { navController.navigate(TransactionEditorRoute(BookType.EXPENSE.name, it)) },
+                        onAdd = { type ->
+                            navController.navigate(TransactionEditorRoute(type = type.name))
+                        },
+                        onEdit = { navController.navigate(TransactionEditorRoute(id = it)) },
                     )
                 }
                 composable<CategoriesRoute> { CategoriesScreen() }
@@ -149,7 +138,7 @@ private fun BudgetBookNav(
                 composable<TransactionEditorRoute> { entry ->
                     val route = entry.toRoute<TransactionEditorRoute>()
                     TransactionEditorScreen(
-                        type = BookType.valueOf(route.type),
+                        type = route.type.takeIf { it.isNotBlank() }?.let { BookType.valueOf(it) },
                         transactionId = route.id,
                         onBack = { navController.popBackStack() },
                     )
@@ -163,8 +152,7 @@ private fun androidx.navigation.NavDestination?.isSelected(item: TopLevelDestina
     val destination = this ?: return false
     return when (item.route) {
         OverviewRoute -> destination.hasRoute<OverviewRoute>()
-        IncomesRoute -> destination.hasRoute<IncomesRoute>()
-        ExpensesRoute -> destination.hasRoute<ExpensesRoute>()
+        TransactionsRoute -> destination.hasRoute<TransactionsRoute>()
         CategoriesRoute -> destination.hasRoute<CategoriesRoute>()
         StatisticsRoute -> destination.hasRoute<StatisticsRoute>()
         SettingsRoute -> destination.hasRoute<SettingsRoute>()

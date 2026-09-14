@@ -45,7 +45,7 @@ val appModule = module {
     viewModelOf(::CategoriesViewModel)
     viewModelOf(::StatisticsViewModel)
     viewModelOf(::SettingsViewModel)
-    viewModel { (type: BookType) -> TransactionsViewModel(type, get()) }
+    viewModelOf(::TransactionsViewModel)
     viewModel { (type: BookType, transactionId: String) ->
         TransactionEditorViewModel(type, transactionId, get())
     }

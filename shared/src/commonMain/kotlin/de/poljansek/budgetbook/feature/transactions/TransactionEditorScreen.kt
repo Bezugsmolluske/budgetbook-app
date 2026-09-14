@@ -1,6 +1,8 @@
 package de.poljansek.budgetbook.feature.transactions
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -8,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -17,6 +20,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -31,21 +35,24 @@ import org.koin.core.parameter.parametersOf
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionEditorScreen(
-    type: BookType,
+    type: BookType?,
     transactionId: String,
     onBack: () -> Unit,
 ) {
-    val viewModel = koinViewModel<TransactionEditorViewModel> { parametersOf(type, transactionId) }
+    val initialType = type ?: BookType.EXPENSE
+    val viewModel = koinViewModel<TransactionEditorViewModel> { parametersOf(initialType, transactionId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isCreate = transactionId.isBlank()
     val title = when {
-        type == BookType.EXPENSE && isCreate -> "Neue Ausgabe"
-        type == BookType.EXPENSE -> "Ausgabe bearbeiten"
+        isCreate && state.type == BookType.EXPENSE -> "Neue Ausgabe"
         isCreate -> "Neues Einkommen"
-        else -> "Einkommen bearbeiten"
+        else -> "Buchung bearbeiten"
     }
-    val selectedName = state.categories.firstOrNull { it.id == state.categoryId }?.name
-        ?: state.categories.firstOrNull()?.name.orEmpty()
+    val matchingCategories = remember(state.categories, state.type) {
+        state.categories.filter { it.type == state.type }
+    }
+    val selectedName = matchingCategories.firstOrNull { it.id == state.categoryId }?.name
+        ?: matchingCategories.firstOrNull()?.name.orEmpty()
 
     LaunchedEffect(state.saved) {
         if (state.saved) onBack()
@@ -73,16 +80,31 @@ fun TransactionEditorScreen(
             else -> Column(
                 Modifier.padding(padding).fillMaxSize().padding(16.dp),
             ) {
+                Row(
+                    Modifier.padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = state.type == BookType.EXPENSE,
+                        onClick = { viewModel.updateType(BookType.EXPENSE) },
+                        label = { Text("Ausgaben") },
+                    )
+                    FilterChip(
+                        selected = state.type == BookType.INCOME,
+                        onClick = { viewModel.updateType(BookType.INCOME) },
+                        label = { Text("Einkommen") },
+                    )
+                }
                 OutlinedTextField(
                     value = state.date,
                     onValueChange = viewModel::updateDate,
                     label = { Text("Datum (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 )
-                if (state.categories.isNotEmpty()) {
+                if (matchingCategories.isNotEmpty()) {
                     SimpleDropdown(
                         label = "Kategorie",
-                        options = state.categories.map { it.name },
+                        options = matchingCategories.map { it.name },
                         selected = selectedName,
                         onSelected = viewModel::updateCategoryName,
                         modifier = Modifier.padding(bottom = 12.dp),

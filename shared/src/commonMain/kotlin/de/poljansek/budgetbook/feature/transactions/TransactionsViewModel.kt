@@ -3,7 +3,6 @@ package de.poljansek.budgetbook.feature.transactions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.poljansek.budgetbook.core.network.BudgetBookApi
-import de.poljansek.budgetbook.core.network.dto.BookType
 import de.poljansek.budgetbook.core.network.dto.CategoryDto
 import de.poljansek.budgetbook.core.network.dto.TransactionsDto
 import de.poljansek.budgetbook.core.ui.monthEnd
@@ -32,7 +31,6 @@ data class TransactionsUiState(
 )
 
 class TransactionsViewModel(
-    private val type: BookType,
     private val api: BudgetBookApi,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TransactionsUiState())
@@ -52,9 +50,8 @@ class TransactionsViewModel(
         refresh()
     }
 
-    fun setCategoryLabel(label: String) {
-        val categoryId = _state.value.categories.firstOrNull { it.name == label }?.id
-        _state.value = _state.value.copy(categoryId = categoryId)
+    fun setCategory(category: CategoryDto?) {
+        _state.value = _state.value.copy(categoryId = category?.id)
         refresh()
     }
 
@@ -78,13 +75,13 @@ class TransactionsViewModel(
             val current = _state.value
             _state.value = current.copy(loading = true, error = null)
             runCatching {
-                val categories = api.getCategories(type)
+                val categories = api.getCategories()
                 val (from, to) = if (current.mode == TransactionFilterMode.DateRange) {
                     current.startDate to current.endDate
                 } else {
                     monthStart(current.year, current.month) to monthEnd(current.year, current.month)
                 }
-                val data = api.getTransactions(from = from, to = to, type = type, categoryId = current.categoryId)
+                val data = api.getTransactions(from = from, to = to, categoryId = current.categoryId)
                 categories to data
             }.onSuccess { (categories, data) ->
                 _state.value = _state.value.copy(loading = false, categories = categories, data = data)
