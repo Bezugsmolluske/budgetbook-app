@@ -70,7 +70,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(busy = true, message = null)
             runCatching { api.restoreJsonBackup(bytes, fileName) }
-                .onSuccess { _state.value = _state.value.copy(busy = false, message = it) }
+                .onSuccess { _state.value = _state.value.copy(busy = false, message = "Wiederhergestellt: ${it.filename}") }
                 .onFailure { _state.value = _state.value.copy(busy = false, message = it.message) }
         }
     }
@@ -79,7 +79,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(busy = true, message = null)
             runCatching { api.restoreCsvBackup(bytes, fileName) }
-                .onSuccess { _state.value = _state.value.copy(busy = false, message = it) }
+                .onSuccess { _state.value = _state.value.copy(busy = false, message = "Wiederhergestellt: ${it.filename}") }
                 .onFailure { _state.value = _state.value.copy(busy = false, message = it.message) }
         }
     }

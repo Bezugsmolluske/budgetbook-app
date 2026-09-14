@@ -1,4 +1,4 @@
-package de.poljansek.budgetbook.feature.expenses
+package de.poljansek.budgetbook.feature.transactions
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,9 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import de.poljansek.budgetbook.core.config.AppConfig
 import de.poljansek.budgetbook.core.money.formatMoney
-import de.poljansek.budgetbook.core.network.dto.ExpenseDto
+import de.poljansek.budgetbook.core.network.dto.BookType
+import de.poljansek.budgetbook.core.network.dto.TransactionDto
 import de.poljansek.budgetbook.core.ui.ConfirmDialog
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
@@ -42,19 +42,24 @@ import de.poljansek.budgetbook.core.ui.MonthYearSelector
 import de.poljansek.budgetbook.core.ui.SimpleDropdown
 import de.poljansek.budgetbook.core.ui.formatIsoDate
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpensesScreen(
+fun TransactionsScreen(
+    type: BookType,
+    title: String,
     onAdd: () -> Unit,
     onEdit: (String) -> Unit,
-    viewModel: ExpensesViewModel = koinViewModel(),
 ) {
+    val viewModel = koinViewModel<TransactionsViewModel> { parametersOf(type) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var pendingDelete by remember { mutableStateOf<ExpenseDto?>(null) }
+    var pendingDelete by remember { mutableStateOf<TransactionDto?>(null) }
+    val selectedCategory = state.categories.firstOrNull { it.id == state.categoryId }?.name
+        ?: ALL_CATEGORIES_LABEL
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Ausgaben") }) },
+        topBar = { TopAppBar(title = { Text(title) }) },
         floatingActionButton = {
             FloatingActionButton(onClick = onAdd) {
                 Icon(Icons.Filled.Add, contentDescription = "Hinzufügen")
@@ -64,17 +69,17 @@ fun ExpensesScreen(
         Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
-                    selected = state.mode == ExpenseFilterMode.MonthYear,
-                    onClick = { viewModel.setMode(ExpenseFilterMode.MonthYear) },
+                    selected = state.mode == TransactionFilterMode.MonthYear,
+                    onClick = { viewModel.setMode(TransactionFilterMode.MonthYear) },
                     label = { Text("Monat") },
                 )
                 FilterChip(
-                    selected = state.mode == ExpenseFilterMode.DateRange,
-                    onClick = { viewModel.setMode(ExpenseFilterMode.DateRange) },
+                    selected = state.mode == TransactionFilterMode.DateRange,
+                    onClick = { viewModel.setMode(TransactionFilterMode.DateRange) },
                     label = { Text("Zeitraum") },
                 )
             }
-            if (state.mode == ExpenseFilterMode.MonthYear) {
+            if (state.mode == TransactionFilterMode.MonthYear) {
                 MonthYearSelector(
                     month = state.month,
                     year = state.year,
@@ -101,12 +106,12 @@ fun ExpensesScreen(
                     )
                 }
             }
-            val categoryNames = listOf(AppConfig.ALL_CATEGORIES) + state.categories.map { it.category }
+            val categoryNames = listOf(ALL_CATEGORIES_LABEL) + state.categories.map { it.name }
             SimpleDropdown(
                 label = "Kategorie",
                 options = categoryNames,
-                selected = state.category,
-                onSelected = viewModel::setCategory,
+                selected = selectedCategory,
+                onSelected = viewModel::setCategoryLabel,
                 modifier = Modifier.padding(top = 12.dp),
             )
             when {
@@ -120,11 +125,11 @@ fun ExpensesScreen(
                         modifier = Modifier.padding(vertical = 12.dp),
                     )
                     LazyColumn(Modifier.fillMaxSize()) {
-                        items(data?.expenses.orEmpty(), key = { it.id ?: it.hashCode().toString() }) { expense ->
-                            ExpenseRow(
-                                expense = expense,
-                                onClick = { expense.id?.let(onEdit) },
-                                onDelete = { pendingDelete = expense },
+                        items(data?.items.orEmpty(), key = { it.id ?: it.hashCode().toString() }) { item ->
+                            TransactionRow(
+                                item = item,
+                                onClick = { item.id?.let(onEdit) },
+                                onDelete = { pendingDelete = item },
                             )
                             HorizontalDivider()
                         }
@@ -134,12 +139,12 @@ fun ExpensesScreen(
         }
     }
 
-    pendingDelete?.let { expense ->
+    pendingDelete?.let { item ->
         ConfirmDialog(
-            title = "Ausgabe löschen?",
-            message = "${expense.description} (${formatMoney(expense.amount, expense.currency)})",
+            title = if (type == BookType.EXPENSE) "Ausgabe löschen?" else "Einkommen löschen?",
+            message = "${item.description} (${formatMoney(item.amount, item.currency)})",
             onConfirm = {
-                expense.id?.let(viewModel::delete)
+                item.id?.let(viewModel::delete)
                 pendingDelete = null
             },
             onDismiss = { pendingDelete = null },
@@ -148,8 +153,8 @@ fun ExpensesScreen(
 }
 
 @Composable
-private fun ExpenseRow(
-    expense: ExpenseDto,
+private fun TransactionRow(
+    item: TransactionDto,
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -161,13 +166,13 @@ private fun ExpenseRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(expense.description, fontWeight = FontWeight.Medium)
+            Text(item.description, fontWeight = FontWeight.Medium)
             Text(
-                "${formatIsoDate(expense.date)} · ${expense.category}",
+                "${formatIsoDate(item.date)} · ${item.category.name}",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        Text(formatMoney(expense.amount, expense.currency), modifier = Modifier.padding(horizontal = 8.dp))
+        Text(formatMoney(item.amount, item.currency), modifier = Modifier.padding(horizontal = 8.dp))
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, contentDescription = "Löschen")
         }

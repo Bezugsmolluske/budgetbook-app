@@ -1,4 +1,4 @@
-package de.poljansek.budgetbook.feature.expenses
+package de.poljansek.budgetbook.feature.transactions
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import de.poljansek.budgetbook.core.network.dto.BookType
 import de.poljansek.budgetbook.core.ui.ConflictDialog
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
@@ -29,12 +30,22 @@ import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpenseEditorScreen(
-    expenseId: String,
+fun TransactionEditorScreen(
+    type: BookType,
+    transactionId: String,
     onBack: () -> Unit,
 ) {
-    val viewModel = koinViewModel<ExpenseEditorViewModel> { parametersOf(expenseId) }
+    val viewModel = koinViewModel<TransactionEditorViewModel> { parametersOf(type, transactionId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isCreate = transactionId.isBlank()
+    val title = when {
+        type == BookType.EXPENSE && isCreate -> "Neue Ausgabe"
+        type == BookType.EXPENSE -> "Ausgabe bearbeiten"
+        isCreate -> "Neues Einkommen"
+        else -> "Einkommen bearbeiten"
+    }
+    val selectedName = state.categories.firstOrNull { it.id == state.categoryId }?.name
+        ?: state.categories.firstOrNull()?.name.orEmpty()
 
     LaunchedEffect(state.saved) {
         if (state.saved) onBack()
@@ -43,7 +54,7 @@ fun ExpenseEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (expenseId.isBlank()) "Neue Ausgabe" else "Ausgabe bearbeiten") },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
@@ -71,9 +82,9 @@ fun ExpenseEditorScreen(
                 if (state.categories.isNotEmpty()) {
                     SimpleDropdown(
                         label = "Kategorie",
-                        options = state.categories.map { it.category },
-                        selected = state.category.ifBlank { state.categories.first().category },
-                        onSelected = viewModel::updateCategory,
+                        options = state.categories.map { it.name },
+                        selected = selectedName,
+                        onSelected = viewModel::updateCategoryName,
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                 }

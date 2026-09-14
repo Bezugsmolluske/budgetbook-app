@@ -1,42 +1,44 @@
-package de.poljansek.budgetbook.feature.expenses
+package de.poljansek.budgetbook.feature.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.poljansek.budgetbook.core.config.AppConfig
-import de.poljansek.budgetbook.core.money.parseMoneyToCents
 import de.poljansek.budgetbook.core.money.centsToInput
+import de.poljansek.budgetbook.core.money.parseMoneyToCents
 import de.poljansek.budgetbook.core.network.BudgetBookApi
 import de.poljansek.budgetbook.core.network.ConflictException
-import de.poljansek.budgetbook.core.network.dto.ExpenseCategoryDto
-import de.poljansek.budgetbook.core.network.dto.ExpenseDto
-import de.poljansek.budgetbook.core.network.dto.ExpenseDtoCreate
+import de.poljansek.budgetbook.core.network.dto.BookType
+import de.poljansek.budgetbook.core.network.dto.CategoryDto
+import de.poljansek.budgetbook.core.network.dto.TransactionDto
+import de.poljansek.budgetbook.core.network.dto.TransactionWriteDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class ExpenseEditorUiState(
+data class TransactionEditorUiState(
     val loading: Boolean = true,
     val saving: Boolean = false,
     val date: String = "",
     val description: String = "",
-    val category: String = "",
+    val categoryId: String = "",
     val amountInput: String = "",
     val currency: String = AppConfig.DEFAULT_CURRENCY,
     val version: Long? = null,
-    val categories: List<ExpenseCategoryDto> = emptyList(),
+    val categories: List<CategoryDto> = emptyList(),
     val error: String? = null,
     val conflict: Boolean = false,
     val saved: Boolean = false,
 )
 
-class ExpenseEditorViewModel(
-    private val expenseId: String,
+class TransactionEditorViewModel(
+    private val type: BookType,
+    private val transactionId: String,
     private val api: BudgetBookApi,
 ) : ViewModel() {
-    private val isCreate: Boolean = expenseId.isBlank()
-    private val _state = MutableStateFlow(ExpenseEditorUiState())
-    val state: StateFlow<ExpenseEditorUiState> = _state.asStateFlow()
+    private val isCreate: Boolean = transactionId.isBlank()
+    private val _state = MutableStateFlow(TransactionEditorUiState())
+    val state: StateFlow<TransactionEditorUiState> = _state.asStateFlow()
 
     init {
         load()
@@ -44,22 +46,25 @@ class ExpenseEditorViewModel(
 
     fun updateDate(value: String) { _state.value = _state.value.copy(date = value) }
     fun updateDescription(value: String) { _state.value = _state.value.copy(description = value) }
-    fun updateCategory(value: String) { _state.value = _state.value.copy(category = value) }
+    fun updateCategoryName(name: String) {
+        val id = _state.value.categories.firstOrNull { it.name == name }?.id.orEmpty()
+        _state.value = _state.value.copy(categoryId = id)
+    }
     fun updateAmount(value: String) { _state.value = _state.value.copy(amountInput = value) }
 
     fun load() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null, conflict = false)
             runCatching {
-                val categories = api.getExpenseCategories()
-                val existing = if (isCreate) null else api.getExpense(expenseId)
+                val categories = api.getCategories(type)
+                val existing = if (isCreate) null else api.getTransaction(transactionId)
                 categories to existing
             }.onSuccess { (categories, existing) ->
                 _state.value = if (existing == null) {
-                    ExpenseEditorUiState(
+                    TransactionEditorUiState(
                         loading = false,
                         categories = categories,
-                        category = categories.firstOrNull()?.category.orEmpty(),
+                        categoryId = categories.firstOrNull()?.id.orEmpty(),
                     )
                 } else {
                     existing.toUi(categories)
@@ -77,37 +82,25 @@ class ExpenseEditorViewModel(
             _state.value = current.copy(error = "Ungültiger Betrag")
             return
         }
-        if (current.date.isBlank() || current.category.isBlank() || current.description.isBlank()) {
+        if (current.date.isBlank() || current.categoryId.isBlank() || current.description.isBlank()) {
             _state.value = current.copy(error = "Bitte alle Felder ausfüllen")
             return
         }
         viewModelScope.launch {
             _state.value = current.copy(saving = true, error = null, conflict = false)
+            val body = TransactionWriteDto(
+                id = transactionId.takeIf { !isCreate },
+                version = current.version,
+                date = current.date,
+                description = current.description,
+                amount = cents,
+                currency = current.currency,
+                type = type,
+                categoryId = current.categoryId,
+            )
             runCatching {
-                if (isCreate) {
-                    api.createExpense(
-                        ExpenseDtoCreate(
-                            date = current.date,
-                            description = current.description,
-                            category = current.category,
-                            amount = cents,
-                            currency = current.currency,
-                        )
-                    )
-                } else {
-                    api.updateExpense(
-                        expenseId,
-                        ExpenseDto(
-                            id = expenseId,
-                            version = current.version,
-                            date = current.date,
-                            description = current.description,
-                            category = current.category,
-                            amount = cents,
-                            currency = current.currency,
-                        )
-                    )
-                }
+                if (isCreate) api.createTransaction(body.copy(id = null, version = null))
+                else api.updateTransaction(transactionId, body)
             }.onSuccess {
                 _state.value = _state.value.copy(saving = false, saved = true)
             }.onFailure { error ->
@@ -120,11 +113,11 @@ class ExpenseEditorViewModel(
         }
     }
 
-    private fun ExpenseDto.toUi(categories: List<ExpenseCategoryDto>) = ExpenseEditorUiState(
+    private fun TransactionDto.toUi(categories: List<CategoryDto>) = TransactionEditorUiState(
         loading = false,
         date = date,
         description = description,
-        category = category,
+        categoryId = category.id,
         amountInput = centsToInput(amount),
         currency = currency,
         version = version,

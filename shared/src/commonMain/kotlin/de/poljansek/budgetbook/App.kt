@@ -4,11 +4,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -34,15 +34,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import de.poljansek.budgetbook.app.theme.BudgetBookTheme
+import de.poljansek.budgetbook.core.network.dto.BookType
 import de.poljansek.budgetbook.core.settings.AppSettings
 import de.poljansek.budgetbook.feature.categories.CategoriesScreen
-import de.poljansek.budgetbook.feature.expenses.ExpenseEditorScreen
-import de.poljansek.budgetbook.feature.expenses.ExpensesScreen
-import de.poljansek.budgetbook.feature.incomes.IncomeEditorScreen
-import de.poljansek.budgetbook.feature.incomes.IncomesScreen
 import de.poljansek.budgetbook.feature.overview.OverviewScreen
 import de.poljansek.budgetbook.feature.settings.SettingsScreen
 import de.poljansek.budgetbook.feature.statistics.StatisticsScreen
+import de.poljansek.budgetbook.feature.transactions.TransactionEditorScreen
+import de.poljansek.budgetbook.feature.transactions.TransactionsScreen
 import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
 
@@ -52,8 +51,7 @@ import org.koin.compose.koinInject
 @Serializable data object CategoriesRoute
 @Serializable data object StatisticsRoute
 @Serializable data object SettingsRoute
-@Serializable data class ExpenseEditorRoute(val id: String = "")
-@Serializable data class IncomeEditorRoute(val id: String = "")
+@Serializable data class TransactionEditorRoute(val type: String, val id: String = "")
 
 private data class TopLevelDestination(
     val route: Any,
@@ -87,8 +85,7 @@ private fun BudgetBookNav(
 ) {
     val backStack by navController.currentBackStackEntryAsState()
     val destination = backStack?.destination
-    val isEditor = destination?.hasRoute<ExpenseEditorRoute>() == true ||
-        destination?.hasRoute<IncomeEditorRoute>() == true
+    val isEditor = destination?.hasRoute<TransactionEditorRoute>() == true
     val widthDp = with(LocalDensity.current) {
         LocalWindowInfo.current.containerSize.width.toDp()
     }
@@ -131,29 +128,29 @@ private fun BudgetBookNav(
             ) {
                 composable<OverviewRoute> { OverviewScreen() }
                 composable<IncomesRoute> {
-                    IncomesScreen(
-                        onAdd = { navController.navigate(IncomeEditorRoute()) },
-                        onEdit = { navController.navigate(IncomeEditorRoute(it)) },
+                    TransactionsScreen(
+                        type = BookType.INCOME,
+                        title = "Einkommen",
+                        onAdd = { navController.navigate(TransactionEditorRoute(BookType.INCOME.name)) },
+                        onEdit = { navController.navigate(TransactionEditorRoute(BookType.INCOME.name, it)) },
                     )
                 }
                 composable<ExpensesRoute> {
-                    ExpensesScreen(
-                        onAdd = { navController.navigate(ExpenseEditorRoute()) },
-                        onEdit = { navController.navigate(ExpenseEditorRoute(it)) },
+                    TransactionsScreen(
+                        type = BookType.EXPENSE,
+                        title = "Ausgaben",
+                        onAdd = { navController.navigate(TransactionEditorRoute(BookType.EXPENSE.name)) },
+                        onEdit = { navController.navigate(TransactionEditorRoute(BookType.EXPENSE.name, it)) },
                     )
                 }
                 composable<CategoriesRoute> { CategoriesScreen() }
                 composable<StatisticsRoute> { StatisticsScreen() }
                 composable<SettingsRoute> { SettingsScreen() }
-                composable<ExpenseEditorRoute> { entry ->
-                    ExpenseEditorScreen(
-                        expenseId = entry.toRoute<ExpenseEditorRoute>().id,
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable<IncomeEditorRoute> { entry ->
-                    IncomeEditorScreen(
-                        incomeId = entry.toRoute<IncomeEditorRoute>().id,
+                composable<TransactionEditorRoute> { entry ->
+                    val route = entry.toRoute<TransactionEditorRoute>()
+                    TransactionEditorScreen(
+                        type = BookType.valueOf(route.type),
+                        transactionId = route.id,
                         onBack = { navController.popBackStack() },
                     )
                 }

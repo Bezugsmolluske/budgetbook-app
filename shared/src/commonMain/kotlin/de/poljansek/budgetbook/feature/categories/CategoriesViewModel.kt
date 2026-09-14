@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.poljansek.budgetbook.core.network.BudgetBookApi
 import de.poljansek.budgetbook.core.network.ConflictException
+import de.poljansek.budgetbook.core.network.dto.BookType
+import de.poljansek.budgetbook.core.network.dto.CategoryDto
 import de.poljansek.budgetbook.core.network.dto.CategoryDtoCreate
-import de.poljansek.budgetbook.core.network.dto.ExpenseCategoryDto
-import de.poljansek.budgetbook.core.network.dto.IncomeCategoryDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,10 +14,14 @@ import kotlinx.coroutines.launch
 
 enum class CategoryKind { Expense, Income }
 
+fun CategoryKind.toBookType(): BookType = when (this) {
+    CategoryKind.Expense -> BookType.EXPENSE
+    CategoryKind.Income -> BookType.INCOME
+}
+
 data class CategoriesUiState(
     val loading: Boolean = true,
-    val expenseCategories: List<ExpenseCategoryDto> = emptyList(),
-    val incomeCategories: List<IncomeCategoryDto> = emptyList(),
+    val categories: List<CategoryDto> = emptyList(),
     val kind: CategoryKind = CategoryKind.Expense,
     val draftName: String = "",
     val editingId: String? = null,
@@ -44,19 +48,10 @@ class CategoriesViewModel(
         _state.value = _state.value.copy(draftName = value)
     }
 
-    fun startEditExpense(category: ExpenseCategoryDto) {
+    fun startEdit(category: CategoryDto) {
         _state.value = _state.value.copy(
-            kind = CategoryKind.Expense,
-            draftName = category.category,
-            editingId = category.id,
-            editingVersion = category.version,
-        )
-    }
-
-    fun startEditIncome(category: IncomeCategoryDto) {
-        _state.value = _state.value.copy(
-            kind = CategoryKind.Income,
-            draftName = category.category,
+            kind = if (category.type == BookType.EXPENSE) CategoryKind.Expense else CategoryKind.Income,
+            draftName = category.name,
             editingId = category.id,
             editingVersion = category.version,
         )
@@ -69,17 +64,13 @@ class CategoriesViewModel(
     fun refresh() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null, conflict = false)
-            runCatching {
-                api.getExpenseCategories() to api.getIncomeCategories()
-            }.onSuccess { (expenses, incomes) ->
-                _state.value = _state.value.copy(
-                    loading = false,
-                    expenseCategories = expenses,
-                    incomeCategories = incomes,
-                )
-            }.onFailure {
-                _state.value = _state.value.copy(loading = false, error = it.message ?: "Fehler")
-            }
+            runCatching { api.getCategories() }
+                .onSuccess { categories ->
+                    _state.value = _state.value.copy(loading = false, categories = categories)
+                }
+                .onFailure {
+                    _state.value = _state.value.copy(loading = false, error = it.message ?: "Fehler")
+                }
         }
     }
 
@@ -90,35 +81,22 @@ class CategoriesViewModel(
             _state.value = current.copy(error = "Name darf nicht leer sein")
             return
         }
+        val type = current.kind.toBookType()
         viewModelScope.launch {
             _state.value = current.copy(error = null, conflict = false)
             runCatching {
-                if (current.kind == CategoryKind.Expense) {
-                    if (current.editingId == null) {
-                        api.createExpenseCategory(CategoryDtoCreate(name))
-                    } else {
-                        api.updateExpenseCategory(
-                            current.editingId,
-                            ExpenseCategoryDto(
-                                id = current.editingId,
-                                version = current.editingVersion,
-                                category = name,
-                            ),
-                        )
-                    }
+                if (current.editingId == null) {
+                    api.createCategory(CategoryDtoCreate(name, type))
                 } else {
-                    if (current.editingId == null) {
-                        api.createIncomeCategory(CategoryDtoCreate(name))
-                    } else {
-                        api.updateIncomeCategory(
-                            current.editingId,
-                            IncomeCategoryDto(
-                                id = current.editingId,
-                                version = current.editingVersion,
-                                category = name,
-                            ),
-                        )
-                    }
+                    api.updateCategory(
+                        current.editingId,
+                        CategoryDto(
+                            id = current.editingId,
+                            version = current.editingVersion,
+                            name = name,
+                            type = type,
+                        ),
+                    )
                 }
             }.onSuccess {
                 _state.value = _state.value.copy(draftName = "", editingId = null, editingVersion = null)
@@ -132,17 +110,9 @@ class CategoriesViewModel(
         }
     }
 
-    fun deleteExpense(id: String) {
+    fun delete(id: String) {
         viewModelScope.launch {
-            runCatching { api.deleteExpenseCategory(id) }
-                .onSuccess { refresh() }
-                .onFailure { _state.value = _state.value.copy(error = it.message ?: "Fehler") }
-        }
-    }
-
-    fun deleteIncome(id: String) {
-        viewModelScope.launch {
-            runCatching { api.deleteIncomeCategory(id) }
+            runCatching { api.deleteCategory(id) }
                 .onSuccess { refresh() }
                 .onFailure { _state.value = _state.value.copy(error = it.message ?: "Fehler") }
         }

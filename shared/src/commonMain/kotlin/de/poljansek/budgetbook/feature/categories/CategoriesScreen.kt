@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,9 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun CategoriesScreen(viewModel: CategoriesViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val visible = remember(state.categories, state.kind) {
+        state.categories.filter { it.type == state.kind.toBookType() }
+    }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Kategorien") }) }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
@@ -73,47 +77,27 @@ fun CategoriesScreen(viewModel: CategoriesViewModel = koinViewModel()) {
             }
             when {
                 state.loading -> LoadingState()
-                state.error != null && state.expenseCategories.isEmpty() && state.incomeCategories.isEmpty() ->
+                state.error != null && state.categories.isEmpty() ->
                     ErrorState(state.error ?: "Fehler", onRetry = viewModel::refresh)
                 else -> {
                     if (state.error != null && !state.conflict) {
                         Text(state.error ?: "", modifier = Modifier.padding(bottom = 8.dp))
                     }
-                    if (state.kind == CategoryKind.Expense) {
-                        LazyColumn {
-                            items(state.expenseCategories, key = { it.id ?: it.category }) { category ->
-                                Row(
-                                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(category.category, modifier = Modifier.weight(1f))
-                                    IconButton(onClick = { viewModel.startEditExpense(category) }) {
-                                        Icon(Icons.Filled.Edit, contentDescription = "Bearbeiten")
-                                    }
-                                    IconButton(onClick = { category.id?.let(viewModel::deleteExpense) }) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "Löschen")
-                                    }
+                    LazyColumn {
+                        items(visible, key = { it.id ?: it.name }) { category ->
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(category.name, modifier = Modifier.weight(1f))
+                                IconButton(onClick = { viewModel.startEdit(category) }) {
+                                    Icon(Icons.Filled.Edit, contentDescription = "Bearbeiten")
                                 }
-                                HorizontalDivider()
-                            }
-                        }
-                    } else {
-                        LazyColumn {
-                            items(state.incomeCategories, key = { it.id ?: it.category }) { category ->
-                                Row(
-                                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(category.category, modifier = Modifier.weight(1f))
-                                    IconButton(onClick = { viewModel.startEditIncome(category) }) {
-                                        Icon(Icons.Filled.Edit, contentDescription = "Bearbeiten")
-                                    }
-                                    IconButton(onClick = { category.id?.let(viewModel::deleteIncome) }) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "Löschen")
-                                    }
+                                IconButton(onClick = { category.id?.let(viewModel::delete) }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
-                                HorizontalDivider()
                             }
+                            HorizontalDivider()
                         }
                     }
                 }

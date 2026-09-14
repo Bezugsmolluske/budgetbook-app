@@ -1,6 +1,7 @@
 package de.poljansek.budgetbook.core.network
 
-import de.poljansek.budgetbook.core.network.dto.ExpenseDtoCreate
+import de.poljansek.budgetbook.core.network.dto.BookType
+import de.poljansek.budgetbook.core.network.dto.TransactionWriteDto
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -19,32 +20,33 @@ class KtorBudgetBookApiTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun getOverviewParsesYearlyList() = runTest {
+    fun getSummaryParsesBuckets() = runTest {
         val engine = MockEngine {
             respond(
                 content = """
-                    [{
-                      "year": 2026,
-                      "expensesSum": 100,
-                      "incomesSum": 200,
-                      "sum": 100,
+                    {
+                      "from": "2026-01-01",
+                      "to": "2026-03-31",
                       "currency": "EUR",
-                      "monthlyOverviews": [
-                        {"month": 1, "expenses": 100, "incomes": 200, "sum": 100, "currency": "EUR"}
+                      "expensesTotal": 100,
+                      "incomesTotal": 200,
+                      "net": 100,
+                      "mean": 33,
+                      "buckets": [
+                        {"period": "2026-01", "expenses": 100, "incomes": 200, "net": 100}
                       ]
-                    }]
+                    }
                 """.trimIndent(),
                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
             )
         }
-        val api = api(engine)
-        val overview = api.getOverview()
-        assertEquals(2026, overview.single().year)
-        assertEquals(100, overview.single().monthlyOverviews.single().expenses)
+        val summary = api(engine).getSummary(from = "2026-01-01", to = "2026-03-31")
+        assertEquals(100, summary.net)
+        assertEquals("2026-01", summary.buckets.single().period)
     }
 
     @Test
-    fun createExpenseSendsCents() = runTest {
+    fun createTransactionSendsCents() = runTest {
         val engine = MockEngine {
             respond(
                 content = """
@@ -53,42 +55,50 @@ class KtorBudgetBookApiTest {
                       "version": 0,
                       "date": "2026-03-15",
                       "description": "Einkauf",
-                      "category": "Lebensmittel",
                       "amount": 4250,
-                      "currency": "EUR"
+                      "currency": "EUR",
+                      "type": "EXPENSE",
+                      "category": {"id": "cat-1", "name": "Lebensmittel", "type": "EXPENSE"}
                     }
                 """.trimIndent(),
                 status = HttpStatusCode.Created,
                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
             )
         }
-        val created = api(engine).createExpense(
-            ExpenseDtoCreate(
+        val created = api(engine).createTransaction(
+            TransactionWriteDto(
                 date = "2026-03-15",
                 description = "Einkauf",
-                category = "Lebensmittel",
                 amount = 4250,
+                type = BookType.EXPENSE,
+                categoryId = "cat-1",
             )
         )
         assertEquals("abc", created.id)
         assertEquals(4250, created.amount)
+        assertEquals("Lebensmittel", created.category.name)
     }
 
     @Test
-    fun updateExpenseMapsConflict() = runTest {
+    fun updateTransactionMapsConflict() = runTest {
         val engine = MockEngine {
-            respond("version mismatch", status = HttpStatusCode.Conflict)
+            respond(
+                """{"code":"CONFLICT","message":"version mismatch"}""",
+                status = HttpStatusCode.Conflict,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
         }
         assertFailsWith<ConflictException> {
-            api(engine).updateExpense(
+            api(engine).updateTransaction(
                 "abc",
-                de.poljansek.budgetbook.core.network.dto.ExpenseDto(
+                TransactionWriteDto(
                     id = "abc",
                     version = 0,
                     date = "2026-03-15",
                     description = "Einkauf",
-                    category = "Lebensmittel",
                     amount = 4250,
+                    type = BookType.EXPENSE,
+                    categoryId = "cat-1",
                 )
             )
         }

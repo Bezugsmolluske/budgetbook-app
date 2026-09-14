@@ -3,15 +3,14 @@ package de.poljansek.budgetbook.di
 import com.russhwolf.settings.Settings
 import de.poljansek.budgetbook.core.network.BudgetBookApi
 import de.poljansek.budgetbook.core.network.KtorBudgetBookApi
+import de.poljansek.budgetbook.core.network.dto.BookType
 import de.poljansek.budgetbook.core.settings.AppSettings
 import de.poljansek.budgetbook.feature.categories.CategoriesViewModel
-import de.poljansek.budgetbook.feature.expenses.ExpenseEditorViewModel
-import de.poljansek.budgetbook.feature.expenses.ExpensesViewModel
-import de.poljansek.budgetbook.feature.incomes.IncomeEditorViewModel
-import de.poljansek.budgetbook.feature.incomes.IncomesViewModel
 import de.poljansek.budgetbook.feature.overview.OverviewViewModel
 import de.poljansek.budgetbook.feature.settings.SettingsViewModel
 import de.poljansek.budgetbook.feature.statistics.StatisticsViewModel
+import de.poljansek.budgetbook.feature.transactions.TransactionEditorViewModel
+import de.poljansek.budgetbook.feature.transactions.TransactionsViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -43,13 +42,13 @@ val appModule = module {
     }
 
     viewModelOf(::OverviewViewModel)
-    viewModelOf(::ExpensesViewModel)
-    viewModelOf(::IncomesViewModel)
     viewModelOf(::CategoriesViewModel)
     viewModelOf(::StatisticsViewModel)
     viewModelOf(::SettingsViewModel)
-    viewModel { (expenseId: String) -> ExpenseEditorViewModel(expenseId, get()) }
-    viewModel { (incomeId: String) -> IncomeEditorViewModel(incomeId, get()) }
+    viewModel { (type: BookType) -> TransactionsViewModel(type, get()) }
+    viewModel { (type: BookType, transactionId: String) ->
+        TransactionEditorViewModel(type, transactionId, get())
+    }
 }
 
 fun initKoin() {

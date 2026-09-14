@@ -23,7 +23,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.poljansek.budgetbook.core.money.formatMoney
-import de.poljansek.budgetbook.core.network.dto.YearlyOverviewDto
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
 import de.poljansek.budgetbook.core.ui.monthLabel
@@ -63,7 +62,7 @@ fun OverviewScreen(viewModel: OverviewViewModel = koinViewModel()) {
 }
 
 @Composable
-private fun YearlyTable(year: YearlyOverviewDto) {
+private fun YearlyTable(year: YearlyOverviewUi) {
     Text(
         text = year.year.toString(),
         style = MaterialTheme.typography.titleLarge,
@@ -72,7 +71,7 @@ private fun YearlyTable(year: YearlyOverviewDto) {
     Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
         HeaderRow()
         HorizontalDivider()
-        year.monthlyOverviews.forEach { month ->
+        year.months.forEach { month ->
             DataRow(
                 label = monthLabel(month.month),
                 incomes = month.incomes,
