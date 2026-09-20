@@ -42,6 +42,7 @@ import de.poljansek.budgetbook.core.ui.ConfirmDialog
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
 import de.poljansek.budgetbook.core.ui.MonthYearSelector
+import de.poljansek.budgetbook.core.ui.RefreshOnEnter
 import de.poljansek.budgetbook.core.ui.SimpleDropdown
 import de.poljansek.budgetbook.core.ui.formatIsoDate
 import org.koin.compose.viewmodel.koinViewModel
@@ -54,6 +55,7 @@ fun TransactionsScreen(
     viewModel: TransactionsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    RefreshOnEnter(viewModel::refresh)
     var pendingDelete by remember { mutableStateOf<TransactionDto?>(null) }
     val selectedCategory = state.categories.firstOrNull { it.id == state.categoryId }
 

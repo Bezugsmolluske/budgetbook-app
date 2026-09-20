@@ -31,12 +31,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.poljansek.budgetbook.core.ui.ConflictDialog
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
+import de.poljansek.budgetbook.core.ui.RefreshOnEnter
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(viewModel: CategoriesViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    RefreshOnEnter(viewModel::refresh)
     val visible = remember(state.categories, state.kind) {
         state.categories.filter { it.type == state.kind.toBookType() }
     }

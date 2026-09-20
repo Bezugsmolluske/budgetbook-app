@@ -84,6 +84,8 @@ data class TransactionSummaryDto(
 @Serializable
 data class BackupRestoreDto(
     val filename: String? = null,
+    val categories: Int = 0,
+    val transactions: Int = 0,
 )
 
 @Serializable

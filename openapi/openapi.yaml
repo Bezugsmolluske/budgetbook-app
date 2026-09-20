@@ -619,10 +619,14 @@ components:
 
     BackupRestoreDto:
       type: object
-      required: [filename]
+      required: [filename, categories, transactions]
       properties:
         filename:
           type: string
+        categories:
+          type: integer
+        transactions:
+          type: integer
 
     ErrorDto:
       type: object

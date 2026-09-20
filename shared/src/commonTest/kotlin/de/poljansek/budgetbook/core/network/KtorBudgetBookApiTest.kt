@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class KtorBudgetBookApiTest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -102,6 +103,24 @@ class KtorBudgetBookApiTest {
                 )
             )
         }
+    }
+
+    @Test
+    fun restoreJsonUploadsBackupBytes() = runTest {
+        val payload = """{"schemaVersion":3,"categories":[{"name":"Auto"}],"transactions":[]}""".encodeToByteArray()
+        var uploadedBytes = 0L
+        val engine = MockEngine { request ->
+            uploadedBytes = request.body.contentLength ?: 0
+            respond(
+                """{"filename":"backup.json","categories":1,"transactions":0}""",
+                status = HttpStatusCode.Created,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val restored = api(engine).restoreJsonBackup(payload, "backup.json")
+        assertEquals("backup.json", restored.filename)
+        assertEquals(1, restored.categories)
+        assertTrue(uploadedBytes >= payload.size)
     }
 
     private fun api(engine: MockEngine): KtorBudgetBookApi {

@@ -28,6 +28,7 @@ import de.poljansek.budgetbook.core.money.formatMoney
 import de.poljansek.budgetbook.core.network.dto.BookType
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
+import de.poljansek.budgetbook.core.ui.RefreshOnEnter
 import de.poljansek.budgetbook.core.ui.SimpleDropdown
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -35,6 +36,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun StatisticsScreen(viewModel: StatisticsViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    RefreshOnEnter(viewModel::refresh)
     val barColor = MaterialTheme.colorScheme.primary
     val kindCategories = state.categories.filter { it.type == state.kind }
     val selectedName = kindCategories.firstOrNull { it.id == state.categoryId }?.name

@@ -135,7 +135,10 @@ class KtorBudgetBookApi(
                     bytes,
                     Headers.build {
                         append(HttpHeaders.ContentType, contentType.toString())
-                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                        append(
+                            HttpHeaders.ContentDisposition,
+                            "form-data; name=\"file\"; filename=\"${fileName.replace("\"", "")}\"",
+                        )
                     },
                 )
             },

@@ -11,6 +11,8 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
     implementation(libs.compose.foundation)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.filekit.core)
+    implementation(libs.filekit.dialogs)
 }
 
 android {

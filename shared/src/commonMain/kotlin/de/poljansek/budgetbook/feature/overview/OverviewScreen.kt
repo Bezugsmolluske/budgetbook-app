@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.poljansek.budgetbook.core.money.formatMoney
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
+import de.poljansek.budgetbook.core.ui.RefreshOnEnter
 import de.poljansek.budgetbook.core.ui.monthLabel
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -32,6 +33,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun OverviewScreen(viewModel: OverviewViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    RefreshOnEnter(viewModel::refresh)
     Scaffold(
         topBar = { TopAppBar(title = { Text("Übersicht") }) },
     ) { padding ->

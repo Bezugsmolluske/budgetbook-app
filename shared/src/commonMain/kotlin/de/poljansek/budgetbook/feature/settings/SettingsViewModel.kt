@@ -3,6 +3,8 @@ package de.poljansek.budgetbook.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.poljansek.budgetbook.core.config.AppConfig
+import de.poljansek.budgetbook.core.files.requireNonEmptyBackupBytes
+import de.poljansek.budgetbook.core.files.requireValidJsonBackup
 import de.poljansek.budgetbook.core.network.BudgetBookApi
 import de.poljansek.budgetbook.core.settings.AppSettings
 import de.poljansek.budgetbook.core.settings.ThemePreference
@@ -69,8 +71,16 @@ class SettingsViewModel(
     fun restoreJson(bytes: ByteArray, fileName: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(busy = true, message = null)
-            runCatching { api.restoreJsonBackup(bytes, fileName) }
-                .onSuccess { _state.value = _state.value.copy(busy = false, message = "Wiederhergestellt: ${it.filename}") }
+            runCatching {
+                requireValidJsonBackup(bytes)
+                api.restoreJsonBackup(bytes, fileName)
+            }
+                .onSuccess { restored ->
+                    _state.value = _state.value.copy(
+                        busy = false,
+                        message = "Wiederhergestellt: ${restored.categories} Kategorien, ${restored.transactions} Buchungen",
+                    )
+                }
                 .onFailure { _state.value = _state.value.copy(busy = false, message = it.message) }
         }
     }
@@ -78,8 +88,16 @@ class SettingsViewModel(
     fun restoreCsv(bytes: ByteArray, fileName: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(busy = true, message = null)
-            runCatching { api.restoreCsvBackup(bytes, fileName) }
-                .onSuccess { _state.value = _state.value.copy(busy = false, message = "Wiederhergestellt: ${it.filename}") }
+            runCatching {
+                requireNonEmptyBackupBytes(bytes)
+                api.restoreCsvBackup(bytes, fileName)
+            }
+                .onSuccess { restored ->
+                    _state.value = _state.value.copy(
+                        busy = false,
+                        message = "Wiederhergestellt: ${restored.categories} Kategorien, ${restored.transactions} Buchungen",
+                    )
+                }
                 .onFailure { _state.value = _state.value.copy(busy = false, message = it.message) }
         }
     }
