@@ -3,8 +3,9 @@ package de.poljansek.budgetbook.feature.transactions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.poljansek.budgetbook.core.config.AppConfig
-import de.poljansek.budgetbook.core.money.centsToInput
-import de.poljansek.budgetbook.core.money.parseMoneyToCents
+import de.poljansek.budgetbook.core.money.amountInputToCents
+import de.poljansek.budgetbook.core.money.applyAmountInput
+import de.poljansek.budgetbook.core.money.centsToAmountInput
 import de.poljansek.budgetbook.core.network.BudgetBookApi
 import de.poljansek.budgetbook.core.network.ConflictException
 import de.poljansek.budgetbook.core.network.dto.BookType
@@ -60,7 +61,9 @@ class TransactionEditorViewModel(
         val id = matching.firstOrNull { it.name == name }?.id.orEmpty()
         _state.value = _state.value.copy(categoryId = id)
     }
-    fun updateAmount(value: String) { _state.value = _state.value.copy(amountInput = value) }
+    fun updateAmount(proposed: String) {
+        _state.value = _state.value.copy(amountInput = applyAmountInput(_state.value.amountInput, proposed))
+    }
 
     fun load() {
         viewModelScope.launch {
@@ -88,7 +91,7 @@ class TransactionEditorViewModel(
 
     fun save() {
         val current = _state.value
-        val cents = parseMoneyToCents(current.amountInput)
+        val cents = amountInputToCents(current.amountInput)
         if (cents == null) {
             _state.value = current.copy(error = "Ungültiger Betrag")
             return
@@ -130,7 +133,7 @@ class TransactionEditorViewModel(
         date = date,
         description = description,
         categoryId = category.id,
-        amountInput = centsToInput(amount),
+        amountInput = centsToAmountInput(amount),
         currency = currency,
         version = version,
         categories = categories,

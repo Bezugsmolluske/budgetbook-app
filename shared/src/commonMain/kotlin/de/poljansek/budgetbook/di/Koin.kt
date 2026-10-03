@@ -6,6 +6,7 @@ import de.poljansek.budgetbook.core.network.KtorBudgetBookApi
 import de.poljansek.budgetbook.core.network.dto.BookType
 import de.poljansek.budgetbook.core.settings.AppSettings
 import de.poljansek.budgetbook.feature.categories.CategoriesViewModel
+import de.poljansek.budgetbook.feature.importing.ImportViewModel
 import de.poljansek.budgetbook.feature.overview.OverviewViewModel
 import de.poljansek.budgetbook.feature.settings.SettingsViewModel
 import de.poljansek.budgetbook.feature.statistics.StatisticsViewModel
@@ -46,6 +47,7 @@ val appModule = module {
     viewModelOf(::StatisticsViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::TransactionsViewModel)
+    viewModelOf(::ImportViewModel)
     viewModel { (type: BookType, transactionId: String) ->
         TransactionEditorViewModel(type, transactionId, get())
     }

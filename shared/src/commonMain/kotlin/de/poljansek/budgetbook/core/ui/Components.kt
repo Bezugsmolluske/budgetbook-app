@@ -29,9 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import de.poljansek.budgetbook.core.money.formatMoney
 
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
@@ -58,16 +61,6 @@ fun ErrorState(
     }
 }
 
-@Composable
-fun MoneyText(cents: Long, currency: String = "EUR", modifier: Modifier = Modifier) {
-    Text(
-        text = formatMoney(cents, currency),
-        modifier = modifier,
-        style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.End,
-    )
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> SimpleDropdown(
@@ -77,27 +70,82 @@ fun <T> SimpleDropdown(
     onSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
     display: (T) -> String = { it.toString() },
+    focusRequester: FocusRequester? = null,
+    tabStop: Boolean = true,
+    enabled: Boolean = true,
+    searchable: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf<String?>(null) }
+    var textFieldFocused by remember { mutableStateOf(false) }
+    val filtering = searchable && query != null
+    val visible = if (!filtering || query.isNullOrBlank()) {
+        options
+    } else {
+        options.filter { display(it).contains(query.orEmpty(), ignoreCase = true) }
+    }
     ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
+        expanded = expanded && enabled,
+        onExpandedChange = { if (enabled) expanded = it },
         modifier = modifier,
     ) {
         OutlinedTextField(
-            value = display(selected),
-            onValueChange = {},
-            readOnly = true,
+            value = if (filtering) query.orEmpty() else display(selected),
+            onValueChange = { value ->
+                if (!searchable || !enabled) return@OutlinedTextField
+                val selectedText = display(selected)
+                query = if (query == null && value.startsWith(selectedText)) {
+                    value.removePrefix(selectedText)
+                } else {
+                    value
+                }
+                expanded = true
+            },
+            readOnly = !searchable,
+            enabled = enabled,
+            singleLine = true,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+            modifier = Modifier
+                .menuAnchor(
+                    if (searchable) {
+                        ExposedDropdownMenuAnchorType.PrimaryEditable
+                    } else {
+                        ExposedDropdownMenuAnchorType.PrimaryNotEditable
+                    },
+                )
+                .fillMaxWidth()
+                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+                .focusProperties { canFocus = tabStop }
+                .onFocusChanged { focus ->
+                    textFieldFocused = focus.isFocused
+                    if (!searchable || !enabled) return@onFocusChanged
+                    if (focus.isFocused) {
+                        expanded = true
+                        if (query == null) query = ""
+                    }
+                },
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+                if (!textFieldFocused) query = null
+            },
+        ) {
+            if (visible.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("Keine Treffer") },
+                    onClick = {},
+                    enabled = false,
+                )
+            }
+            visible.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(display(option)) },
                     onClick = {
                         onSelected(option)
+                        query = null
                         expanded = false
                     },
                 )

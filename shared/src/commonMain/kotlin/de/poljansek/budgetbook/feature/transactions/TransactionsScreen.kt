@@ -20,31 +20,40 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import de.poljansek.budgetbook.core.files.pickBackupFile
 import de.poljansek.budgetbook.core.money.formatMoney
 import de.poljansek.budgetbook.core.network.dto.BookType
 import de.poljansek.budgetbook.core.network.dto.CategoryDto
 import de.poljansek.budgetbook.core.network.dto.TransactionDto
 import de.poljansek.budgetbook.core.ui.ConfirmDialog
+import de.poljansek.budgetbook.core.ui.DateRangeField
 import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
 import de.poljansek.budgetbook.core.ui.MonthYearSelector
 import de.poljansek.budgetbook.core.ui.RefreshOnEnter
 import de.poljansek.budgetbook.core.ui.SimpleDropdown
 import de.poljansek.budgetbook.core.ui.formatIsoDate
+import de.poljansek.budgetbook.feature.importing.ImportDialog
+import de.poljansek.budgetbook.feature.importing.ImportedBooking
+import de.poljansek.budgetbook.feature.importing.parseMlpCsv
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,11 +65,35 @@ fun TransactionsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     RefreshOnEnter(viewModel::refresh)
+    val scope = rememberCoroutineScope()
     var pendingDelete by remember { mutableStateOf<TransactionDto?>(null) }
+    var importBookings by remember { mutableStateOf<List<ImportedBooking>?>(null) }
+    var importError by remember { mutableStateOf<String?>(null) }
     val selectedCategory = state.categories.firstOrNull { it.id == state.categoryId }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Buchungen") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Buchungen") },
+                actions = {
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                val file = pickBackupFile("csv") ?: return@launch
+                                runCatching {
+                                    withContext(Dispatchers.Default) { parseMlpCsv(file.bytes) }
+                                }.onSuccess { rows ->
+                                    importError = null
+                                    importBookings = rows
+                                }.onFailure { error ->
+                                    importError = error.message ?: "Die Datei konnte nicht gelesen werden."
+                                }
+                            }
+                        },
+                    ) { Text("Importieren") }
+                },
+            )
+        },
         floatingActionButton = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -101,23 +134,19 @@ fun TransactionsScreen(
                     modifier = Modifier.padding(top = 12.dp),
                 )
             } else {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    OutlinedTextField(
-                        value = state.startDate,
-                        onValueChange = viewModel::setStartDate,
-                        label = { Text("Von (YYYY-MM-DD)") },
-                        modifier = Modifier.weight(1f),
-                    )
-                    OutlinedTextField(
-                        value = state.endDate,
-                        onValueChange = viewModel::setEndDate,
-                        label = { Text("Bis (YYYY-MM-DD)") },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                DateRangeField(
+                    startDate = state.startDate,
+                    endDate = state.endDate,
+                    onRangeSelected = viewModel::setDateRange,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                )
+            }
+            importError?.let { message ->
+                Text(
+                    message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
             }
             SimpleDropdown(
                 label = "Kategorie",
@@ -166,6 +195,16 @@ fun TransactionsScreen(
                 pendingDelete = null
             },
             onDismiss = { pendingDelete = null },
+        )
+    }
+
+    importBookings?.let { bookings ->
+        ImportDialog(
+            bookings = bookings,
+            onDismiss = { savedCount ->
+                importBookings = null
+                if (savedCount > 0) viewModel.refresh()
+            },
         )
     }
 }

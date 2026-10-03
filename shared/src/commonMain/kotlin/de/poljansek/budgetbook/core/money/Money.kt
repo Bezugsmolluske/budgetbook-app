@@ -6,8 +6,6 @@ data class Money(
     val amountInCents: Long,
     val currency: String = DEFAULT_CURRENCY,
 ) {
-    fun formatted(): String = formatMoney(amountInCents, currency)
-
     companion object {
         const val DEFAULT_CURRENCY: String = "EUR"
     }
@@ -51,6 +49,50 @@ fun parseMoneyToCents(input: String): Long? {
     }
     val cents = major * 100 + minor
     return if (negative) -cents else cents
+}
+
+private const val MAX_AMOUNT_DIGITS = 12
+
+/** Digits stored for the amount field. "428" means 4,28 €. Empty means 0. */
+fun centsToAmountInput(amountInCents: Long): String {
+    val absValue = abs(amountInCents)
+    return if (absValue == 0L) "" else absValue.toString()
+}
+
+fun amountInputToCents(digits: String): Long? {
+    val normalized = digits.filter(Char::isDigit).trimStart('0')
+    if (normalized.isEmpty()) return null
+    return normalized.toLongOrNull()
+}
+
+/** What the amount field shows. Empty input is "0,00" so the next digit lands in the cents place. */
+fun formatAmountInput(digits: String): String = centsToInput(amountInputToCents(digits) ?: 0L)
+
+/**
+ * Each new digit becomes the cents place and shifts the previous digits left.
+ * "4" then "2" then "8" is 4,28 €. Backspace removes the last digit.
+ */
+fun applyAmountInput(currentDigits: String, proposedFieldText: String): String {
+    val current = currentDigits.filter(Char::isDigit).trimStart('0')
+    val oldDigits = formatAmountInput(current).filter(Char::isDigit)
+    val newDigits = proposedFieldText.filter(Char::isDigit)
+    val added = addedDigits(oldDigits, newDigits)
+    val next = when {
+        added.isNotEmpty() && newDigits.length >= oldDigits.length -> current + added
+        added.isNotEmpty() -> added
+        newDigits.length < oldDigits.length -> current.dropLast(oldDigits.length - newDigits.length)
+        else -> current
+    }
+    return next.trimStart('0').take(MAX_AMOUNT_DIGITS)
+}
+
+private fun addedDigits(oldDigits: String, newDigits: String): String {
+    val extra = StringBuilder()
+    var index = 0
+    for (char in newDigits) {
+        if (index < oldDigits.length && char == oldDigits[index]) index++ else extra.append(char)
+    }
+    return extra.toString()
 }
 
 fun centsToInput(amountInCents: Long): String {

@@ -30,6 +30,7 @@ import de.poljansek.budgetbook.core.settings.ThemePreference
 import de.poljansek.budgetbook.core.ui.ConfirmDialog
 import de.poljansek.budgetbook.core.files.pickBackupFile
 import de.poljansek.budgetbook.core.files.saveBackupFile
+import de.poljansek.budgetbook.core.files.suggestedBackupName
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -90,7 +91,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
                     onClick = {
                         scope.launch {
                             runCatching {
-                                saveBackupFile(viewModel.exportJson(), "backup", "json")
+                                saveBackupFile(viewModel.exportJson(), suggestedBackupName(), "json")
                             }
                         }
                     },
@@ -100,7 +101,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
                     onClick = {
                         scope.launch {
                             runCatching {
-                                saveBackupFile(viewModel.exportCsv(), "backup", "csv")
+                                saveBackupFile(viewModel.exportCsv(), suggestedBackupName(), "csv")
                             }
                         }
                     },

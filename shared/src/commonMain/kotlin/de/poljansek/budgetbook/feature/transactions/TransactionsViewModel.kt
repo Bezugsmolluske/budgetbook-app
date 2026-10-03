@@ -60,13 +60,8 @@ class TransactionsViewModel(
         refresh()
     }
 
-    fun setStartDate(value: String) {
-        _state.value = _state.value.copy(startDate = value)
-        refresh()
-    }
-
-    fun setEndDate(value: String) {
-        _state.value = _state.value.copy(endDate = value)
+    fun setDateRange(start: String, end: String) {
+        _state.value = _state.value.copy(startDate = start, endDate = end)
         refresh()
     }
 
