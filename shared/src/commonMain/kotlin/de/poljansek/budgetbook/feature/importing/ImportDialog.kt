@@ -20,7 +20,6 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -29,20 +28,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,7 +58,6 @@ import de.poljansek.budgetbook.core.ui.ErrorState
 import de.poljansek.budgetbook.core.ui.LoadingState
 import de.poljansek.budgetbook.core.ui.TransactionForm
 import de.poljansek.budgetbook.core.ui.formatIsoDate
-import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -224,24 +219,23 @@ private fun ImportRowCard(
         },
     ) {
         if (duplicate) {
-            Text(
-                "Mögliche Dublette",
-                style = MaterialTheme.typography.titleSmall,
-                color = highlight.text,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
-            )
+            Column(Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)) {
+                Text(
+                    "Mögliche Dublette",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = highlight.text,
+                )
+                matches.forEach { match ->
+                    ExistingMatch(match, highlight.text)
+                }
+            }
         }
-        Text(
-            row.source,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (duplicate) {
-                highlight.text
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+        ImportSource(
+            source = row.source,
+            color = if (duplicate) highlight.text else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(
                 start = 16.dp,
-                top = if (duplicate) 4.dp else 16.dp,
+                top = if (duplicate) 8.dp else 16.dp,
                 end = 16.dp,
             ),
         )
@@ -259,11 +253,7 @@ private fun ImportRowCard(
             onDescriptionChange = onDescription,
             modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
             enabled = !row.locked,
-            headerActions = {
-                if (matches.isNotEmpty()) {
-                    DuplicateHint(matches)
-                }
-            },
+            descriptionMaxLines = 3,
         )
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
@@ -306,27 +296,58 @@ private fun ImportRowCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DuplicateHint(matches: List<ExistingBooking>) {
-    val text = matches.joinToString("\n") { match ->
-        "${formatIsoDate(match.date)} · ${formatMoney(match.amountCents, match.currency)} · ${match.description} · ${match.categoryName}"
-    }
-    val tooltipState = rememberTooltipState(isPersistent = true)
-    val scope = rememberCoroutineScope()
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-        tooltip = { PlainTooltip { Text(text) } },
-        state = tooltipState,
+private fun ExistingMatch(match: ExistingBooking, color: Color) {
+    Surface(
+        color = color.copy(alpha = 0.12f),
+        contentColor = color,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
     ) {
-        IconButton(
-            onClick = {
-                scope.launch {
-                    if (tooltipState.isVisible) tooltipState.dismiss() else tooltipState.show()
-                }
-            },
+        Column(Modifier.padding(12.dp)) {
+            Text("Bereits vorhanden", style = MaterialTheme.typography.labelLarge)
+            Text(
+                match.description,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            Text(
+                "${formatIsoDate(match.date)} · ${formatMoney(match.amountCents, match.currency)} · ${match.categoryName}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImportSource(source: String, color: Color, modifier: Modifier = Modifier) {
+    val lines = source.lines()
+    val head = lines.firstOrNull().orEmpty()
+    val rest = lines.drop(1).joinToString("\n").trim()
+    var expanded by remember(source) { mutableStateOf(false) }
+    Column(modifier) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Filled.Info, contentDescription = "Mögliche Dublette")
+            Text(
+                head,
+                style = MaterialTheme.typography.bodySmall,
+                color = color,
+                modifier = Modifier.weight(1f),
+            )
+            if (rest.isNotEmpty()) {
+                TextButton(
+                    onClick = { expanded = !expanded },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                ) {
+                    Text(if (expanded) "Weniger" else "Rohdaten")
+                }
+            }
+        }
+        if (expanded && rest.isNotEmpty()) {
+            Text(rest, style = MaterialTheme.typography.bodySmall, color = color)
         }
     }
 }

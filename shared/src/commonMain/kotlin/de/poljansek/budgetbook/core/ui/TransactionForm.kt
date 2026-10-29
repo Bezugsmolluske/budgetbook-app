@@ -65,6 +65,7 @@ fun TransactionForm(
     descriptionKeyboardActions: KeyboardActions = KeyboardActions.Default,
     headerActions: @Composable RowScope.() -> Unit = {},
     enabled: Boolean = true,
+    descriptionMaxLines: Int = Int.MAX_VALUE,
 ) {
     Column(modifier) {
         Row(
@@ -136,6 +137,7 @@ fun TransactionForm(
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).then(descriptionModifier),
             keyboardOptions = descriptionKeyboardOptions,
             keyboardActions = descriptionKeyboardActions,
+            maxLines = descriptionMaxLines,
         )
     }
 }
