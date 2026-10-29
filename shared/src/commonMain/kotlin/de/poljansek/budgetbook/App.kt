@@ -1,19 +1,23 @@
 package de.poljansek.budgetbook
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,9 +63,9 @@ private data class TopLevelDestination(
 
 private val topLevelDestinations = listOf(
     TopLevelDestination(OverviewRoute, "Übersicht", Icons.Filled.Home),
-    TopLevelDestination(TransactionsRoute, "Buchungen", Icons.Filled.AddCircle),
-    TopLevelDestination(CategoriesRoute, "Kategorien", Icons.AutoMirrored.Filled.List),
-    TopLevelDestination(StatisticsRoute, "Statistik", Icons.Filled.DateRange),
+    TopLevelDestination(TransactionsRoute, "Buchungen", Icons.Filled.Receipt),
+    TopLevelDestination(CategoriesRoute, "Kategorien", Icons.Filled.Category),
+    TopLevelDestination(StatisticsRoute, "Statistik", Icons.Filled.BarChart),
     TopLevelDestination(SettingsRoute, "Einstellungen", Icons.Filled.Settings),
 )
 
@@ -86,11 +90,11 @@ private fun BudgetBookNav(
     val widthDp = with(LocalDensity.current) {
         LocalWindowInfo.current.containerSize.width.toDp()
     }
-    val useRail = widthDp >= 600.dp && !isEditor
+    val useSideMenu = widthDp >= 600.dp && !isEditor
 
     Scaffold(
         bottomBar = {
-            if (!useRail && !isEditor) {
+            if (!useSideMenu && !isEditor) {
                 NavigationBar {
                     topLevelDestinations.forEach { item ->
                         NavigationBarItem(
@@ -106,15 +110,23 @@ private fun BudgetBookNav(
         }
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
-            if (useRail) {
-                NavigationRail {
-                    topLevelDestinations.forEach { item ->
-                        NavigationRailItem(
-                            selected = destination.isSelected(item),
-                            onClick = { navController.navigateTopLevel(item.route) },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) },
-                        )
+            if (useSideMenu) {
+                Surface(
+                    Modifier.fillMaxHeight().width(220.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                ) {
+                    Column(
+                        Modifier.fillMaxHeight().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        topLevelDestinations.forEach { item ->
+                            NavigationDrawerItem(
+                                icon = { Icon(item.icon, contentDescription = null) },
+                                label = { Text(item.label) },
+                                selected = destination.isSelected(item),
+                                onClick = { navController.navigateTopLevel(item.route) },
+                            )
+                        }
                     }
                 }
             }
