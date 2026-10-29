@@ -68,6 +68,7 @@ fun OverviewScreen(viewModel: OverviewViewModel = koinViewModel()) {
                             .fillMaxSize()
                             .verticalScroll(scrollState)
                             .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         if (state.years.isEmpty()) {

@@ -1,22 +1,32 @@
 package de.poljansek.budgetbook.feature.categories
 
+import androidx.compose.foundation.ScrollbarStyle
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.poljansek.budgetbook.core.ui.ConflictDialog
@@ -44,17 +55,23 @@ fun CategoriesScreen(viewModel: CategoriesViewModel = koinViewModel()) {
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Kategorien") }) }) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
+        Column(
+            Modifier.padding(padding).fillMaxSize().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().weight(1f)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = state.kind == CategoryKind.Expense,
                     onClick = { viewModel.setKind(CategoryKind.Expense) },
                     label = { Text("Ausgaben") },
+                    colors = typeChipColors(ExpenseSelected),
                 )
                 FilterChip(
                     selected = state.kind == CategoryKind.Income,
                     onClick = { viewModel.setKind(CategoryKind.Income) },
                     label = { Text("Einkommen") },
+                    colors = typeChipColors(IncomeSelected),
                 )
             }
             Row(
@@ -85,7 +102,9 @@ fun CategoriesScreen(viewModel: CategoriesViewModel = koinViewModel()) {
                     if (state.error != null && !state.conflict) {
                         Text(state.error ?: "", modifier = Modifier.padding(bottom = 8.dp))
                     }
-                    LazyColumn {
+                    val listState = rememberLazyListState()
+                    Box(Modifier.fillMaxWidth().weight(1f)) {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                         items(visible, key = { it.id ?: it.name }) { category ->
                             Row(
                                 Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -102,7 +121,21 @@ fun CategoriesScreen(viewModel: CategoriesViewModel = koinViewModel()) {
                             HorizontalDivider()
                         }
                     }
+                    VerticalScrollbar(
+                        adapter = rememberScrollbarAdapter(listState),
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                        style = ScrollbarStyle(
+                            minimalHeight = 24.dp,
+                            thickness = 8.dp,
+                            shape = RoundedCornerShape(4.dp),
+                            hoverDurationMillis = 300,
+                            unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                        ),
+                    )
+                    }
                 }
+            }
             }
         }
     }
@@ -111,3 +144,12 @@ fun CategoriesScreen(viewModel: CategoriesViewModel = koinViewModel()) {
         ConflictDialog(onReload = viewModel::refresh, onDismiss = viewModel::refresh)
     }
 }
+
+private val ExpenseSelected = Color(0xFFC62828)
+private val IncomeSelected = Color(0xFF2E7D32)
+
+@Composable
+private fun typeChipColors(selected: Color) = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = selected,
+    selectedLabelColor = Color.White,
+)
